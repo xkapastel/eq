@@ -1,0 +1,11 @@
+Eq is a blockchain database.
+
+* Language
+#+BEGIN_SRC
+Γ [A] [B] apply*  Δ         == Γ  B* [A]        Δ
+Γ [A] [B] bind*   Δ         == Γ [[A] B]        Δ*
+Γ [A]     copy*   Δ         == Γ [A] [A]        Δ*
+Γ [A]     drop*   Δ         == Γ                Δ*
+Γ [A]     shift*  Δ reset Ε == Γ [Δ]  A* reset  Ε
+Γ         reset*  Δ         == Γ                Δ*
+#+END_SRC
