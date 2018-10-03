@@ -15,6 +15,7 @@
 // License along with this program.  If not, see
 // <https://www.gnu.org/licenses/.
 
+/// An error that might occur during computation.
 #[derive(Debug, Copy, Clone)]
 pub enum Error {
   Time,
@@ -25,10 +26,13 @@ pub enum Error {
   Null,
   Assert,
   Syntax,
+  Underflow,
 }
 
+/// The result of an Eq computation.
 pub type Result<T> = std::result::Result<T, Error>;
 
+/// Halt the computation is the given condition is false.
 pub fn assert(flag: Result<bool>) -> Result<()> {
   match flag {
     Ok(true) => {
@@ -48,3 +52,4 @@ pub use self::heap::Pointer;
 pub use self::heap::Heap;
 
 mod eval;
+pub use self::eval::eval;

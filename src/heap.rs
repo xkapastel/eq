@@ -28,12 +28,22 @@ pub struct Pointer {
 
 pub type Number = f64;
 
+enum Function {
+  App,
+  Bind,
+  Copy,
+  Drop,
+  Shift,
+  Reset,
+}
+
 enum Object {
-  Nil,
+  Id,
   Number(Number),
-  Symbol(Rc<str>),
-  Wrap(Pointer),
-  Pair(Pointer, Pointer),
+  Word(Rc<str>),
+  Function(Function),
+  Block(Pointer),
+  Sequence(Pointer, Pointer),
 }
 
 struct Node {
@@ -49,7 +59,7 @@ pub struct Heap {
 }
 
 impl Pointer {
-  fn nil() -> Self {
+  fn id() -> Self {
     Pointer {
       index: 0,
       generation: 0,
@@ -60,6 +70,118 @@ impl Pointer {
     Pointer {
       index: index,
       generation: generation,
+    }
+  }
+}
+
+impl Function {
+  fn to_string(&self) -> String {
+    match self {
+      Function::App => {
+        return String::from("app");
+      }
+      Function::Bind => {
+        return String::from("bind");
+      }
+      Function::Copy => {
+        return String::from("copy");
+      }
+      Function::Drop => {
+        return String::from("drop");
+      }
+      Function::Shift => {
+        return String::from("shift");
+      }
+      Function::Reset => {
+        return String::from("reset");
+      }
+      
+    }
+  }
+  
+  fn is_app(&self) -> bool {
+    match self {
+      Function::App => true,
+      _ => false,
+    }
+  }
+
+  fn is_bind(&self) -> bool {
+    match self {
+      Function::Bind => true,
+      _ => false,
+    }
+  }
+
+  fn is_copy(&self) -> bool {
+    match self {
+      Function::Copy => true,
+      _ => false,
+    }
+  }
+
+  fn is_drop(&self) -> bool {
+    match self {
+      Function::Drop => true,
+      _ => false,
+    }
+  }
+
+  fn is_shift(&self) -> bool {
+    match self {
+      Function::Shift => true,
+      _ => false,
+    }
+  }
+
+  fn is_reset(&self) -> bool {
+    match self {
+      Function::Reset => true,
+      _ => false,
+    }
+  }
+}
+
+impl Object {
+  fn is_id(&self) -> bool {
+    match self {
+      Object::Id => true,
+      _ => false,
+    }
+  }
+
+  fn is_function(&self) -> bool {
+    match self {
+      Object::Function(_) => true,
+      _ => false,
+    }
+  }
+
+  fn is_number(&self) -> bool {
+    match self {
+      Object::Number(_) => true,
+      _ => false,
+    }
+  }
+
+  fn is_word(&self) -> bool {
+    match self {
+      Object::Word(_) => true,
+      _ => false,
+    }
+  }
+
+  fn is_block(&self) -> bool {
+    match self {
+      Object::Block(_) => true,
+      _ => false,
+    }
+  }
+
+  fn is_sequence(&self) -> bool {
+    match self {
+      Object::Sequence(_, _) => true,
+      _ => false,
     }
   }
 }
@@ -78,7 +200,7 @@ impl Heap {
   /// Creates a heap with the given capacity.
   pub fn with_capacity(capacity: usize) -> Self {
     let mut nodes = Vec::with_capacity(capacity);
-    for i in 0..capacity {
+    for _ in 0..capacity {
       nodes.push(None);
     }
     Heap {
@@ -87,9 +209,39 @@ impl Heap {
     }
   }
   
-  /// Returns the nil object
-  pub fn nil(&mut self) -> Result<Pointer> {
-    let object = Object::Nil;
+  /// Returns the id object
+  pub fn new_id(&mut self) -> Result<Pointer> {
+    let object = Object::Id;
+    return self.put(object);
+  }
+
+  pub fn new_app(&mut self) -> Result<Pointer> {
+    let object = Object::Function(Function::App);
+    return self.put(object);
+  }
+
+  pub fn new_bind(&mut self) -> Result<Pointer> {
+    let object = Object::Function(Function::Bind);
+    return self.put(object);
+  }
+
+  pub fn new_copy(&mut self) -> Result<Pointer> {
+    let object = Object::Function(Function::Copy);
+    return self.put(object);
+  }
+
+  pub fn new_drop(&mut self) -> Result<Pointer> {
+    let object = Object::Function(Function::Drop);
+    return self.put(object);
+  }
+
+  pub fn new_shift(&mut self) -> Result<Pointer> {
+    let object = Object::Function(Function::Shift);
+    return self.put(object);
+  }
+
+  pub fn new_reset(&mut self) -> Result<Pointer> {
+    let object = Object::Function(Function::Reset);
     return self.put(object);
   }
 
@@ -99,114 +251,109 @@ impl Heap {
     return self.put(object);
   }
 
-  /// Creates a new symbol.
-  pub fn new_symbol(&mut self, value: Rc<str>) -> Result<Pointer> {
-    let object = Object::Symbol(value);
+  /// Creates a new word.
+  pub fn new_word(&mut self, value: Rc<str>) -> Result<Pointer> {
+    let object = Object::Word(value);
     return self.put(object);
   }
 
-  /// Wraps the given object.
-  pub fn new_wrap(&mut self, body: Pointer) -> Result<Pointer> {
-    let object = Object::Wrap(body);
+  /// Creates a new block.
+  pub fn new_block(&mut self, body: Pointer) -> Result<Pointer> {
+    let object = Object::Block(body);
     return self.put(object);
   }
 
-  /// Creates a new pair.
-  pub fn new_pair(
+  /// Creates a new sequence.
+  pub fn new_sequence(
     &mut self,
-    fst: Pointer,
-    snd: Pointer) -> Result<Pointer> {
-    let object = Object::Pair(fst, snd);
+    head: Pointer,
+    tail: Pointer) -> Result<Pointer> {
+    let object = Object::Sequence(head, tail);
     return self.put(object);
   }
 
-  /// Predicates the nil object.
-  pub fn is_nil(&self, pointer: Pointer) -> Result<bool> {
-    match self.get_ref(pointer)? {
-      &Object::Nil => {
-        return Ok(true);
-      }
-      _ => {
-        return Ok(false);
-      }
-    }
+  /// Predicates the id object.
+  pub fn is_id(&self, pointer: Pointer) -> Result<bool> {
+    let object = self.get_ref(pointer)?;
+    return Ok(object.is_id());
+  }
+
+  /// Predicates functions.
+  pub fn is_function(&self, pointer: Pointer) -> Result<bool> {
+    let object = self.get_ref(pointer)?;
+    return Ok(object.is_function());
   }
 
   /// Predicates numbers.
   pub fn is_number(&self, pointer: Pointer) -> Result<bool> {
-    match self.get_ref(pointer)? {
-      &Object::Number(_) => {
-        return Ok(true);
-      }
-      _ => {
-        return Ok(false);
-      }
-    }
+    let object = self.get_ref(pointer)?;
+    return Ok(object.is_number());
   }
 
-  /// Predicates symbols.
-  pub fn is_symbol(&self, pointer: Pointer) -> Result<bool> {
-    match self.get_ref(pointer)? {
-      &Object::Symbol(_) => {
-        return Ok(true);
-      }
-      _ => {
-        return Ok(false);
-      }
-    }
+  /// Predicates words.
+  pub fn is_word(&self, pointer: Pointer) -> Result<bool> {
+    let object = self.get_ref(pointer)?;
+    return Ok(object.is_word());
   }
 
   pub fn is_app(&self, pointer: Pointer) -> Result<bool> {
-    return self.symbol_eq(pointer, "app");
+    if !self.is_function(pointer)? {
+      return Ok(false);
+    }
+    let object = self.get_function_ref(pointer)?;
+    return Ok(object.is_app());
   }
 
   pub fn is_bind(&self, pointer: Pointer) -> Result<bool> {
-    return self.symbol_eq(pointer, "bind");
+    if !self.is_function(pointer)? {
+      return Ok(false);
+    }
+    let object = self.get_function_ref(pointer)?;
+    return Ok(object.is_bind());
   }
 
   pub fn is_copy(&self, pointer: Pointer) -> Result<bool> {
-    return self.symbol_eq(pointer, "copy");
+    if !self.is_function(pointer)? {
+      return Ok(false);
+    }
+    let object = self.get_function_ref(pointer)?;
+    return Ok(object.is_copy());
   }
 
   pub fn is_drop(&self, pointer: Pointer) -> Result<bool> {
-    return self.symbol_eq(pointer, "drop");
+    if !self.is_function(pointer)? {
+      return Ok(false);
+    }
+    let object = self.get_function_ref(pointer)?;
+    return Ok(object.is_drop());
   }
 
   pub fn is_shift(&self, pointer: Pointer) -> Result<bool> {
-    return self.symbol_eq(pointer, "shift");
+    if !self.is_function(pointer)? {
+      return Ok(false);
+    }
+    let object = self.get_function_ref(pointer)?;
+    return Ok(object.is_shift());
   }
 
   pub fn is_reset(&self, pointer: Pointer) -> Result<bool> {
-    return self.symbol_eq(pointer, "reset");
-  }
-
-  fn symbol_eq(&self, pointer: Pointer, rhs: &str) -> Result<bool> {
-    match self.get_ref(pointer)? {
-      &Object::Symbol(ref lhs) => {
-        return Ok(lhs.as_ref() == rhs);
-      }
-      _ => {
-        return Ok(false);
-      }
+    if !self.is_function(pointer)? {
+      return Ok(false);
     }
+    let object = self.get_function_ref(pointer)?;
+    return Ok(object.is_reset());
   }
 
-  /// Predicates wraps.
-  pub fn is_wrap(&self, pointer: Pointer) -> Result<bool> {
-    match self.get_ref(pointer)? {
-      &Object::Wrap(_) => {
-        return Ok(true);
-      }
-      _ => {
-        return Ok(false);
-      }
-    }
+  /// Predicates blocks.
+  pub fn is_block(&self, pointer: Pointer) -> Result<bool> {
+    let object = self.get_ref(pointer)?;
+    return Ok(object.is_block());
   }
 
-  /// Predicates pairs.
-  pub fn is_pair(&self, pointer: Pointer) -> Result<bool> {
+  /// Predicates sequences.
+  pub fn is_sequence(&self, pointer: Pointer) -> Result<bool> {
     match self.get_ref(pointer)? {
-      &Object::Pair(_, _) => {
+      &Object::Sequence(_, _) => {
         return Ok(true);
       }
       _ => {
@@ -227,10 +374,10 @@ impl Heap {
     }
   }
 
-  /// Get the value of a symbol.
-  pub fn get_symbol(&self, pointer: Pointer) -> Result<Rc<str>> {
+  /// Get the value of a word.
+  pub fn get_word(&self, pointer: Pointer) -> Result<Rc<str>> {
     match self.get_ref(pointer)? {
-      &Object::Symbol(ref value) => {
+      &Object::Word(ref value) => {
         return Ok(value.clone());
       }
       _ => {
@@ -239,10 +386,10 @@ impl Heap {
     }
   }
 
-  /// Get the body of a wrap.
-  pub fn get_wrap_body(&self, pointer: Pointer) -> Result<Pointer> {
+  /// Get the body of a block.
+  pub fn get_block_body(&self, pointer: Pointer) -> Result<Pointer> {
     match self.get_ref(pointer)? {
-      &Object::Wrap(ref body) => {
+      &Object::Block(ref body) => {
         return Ok(*body);
       }
       _ => {
@@ -251,11 +398,11 @@ impl Heap {
     }
   }
 
-  /// Get the first element of a pair.
-  pub fn get_pair_fst(&self, pointer: Pointer) -> Result<Pointer> {
+  /// Get the first element of a sequence.
+  pub fn get_sequence_head(&self, pointer: Pointer) -> Result<Pointer> {
     match self.get_ref(pointer)? {
-      &Object::Pair(ref fst, _) => {
-        return Ok(*fst);
+      &Object::Sequence(ref head, _) => {
+        return Ok(*head);
       }
       _ => {
         return Err(Error::Tag);
@@ -263,11 +410,11 @@ impl Heap {
     }
   }
 
-  /// Get the second element of a pair.
-  pub fn get_pair_snd(&self, pointer: Pointer) -> Result<Pointer> {
+  /// Get the second element of a sequence.
+  pub fn get_sequence_tail(&self, pointer: Pointer) -> Result<Pointer> {
     match self.get_ref(pointer)? {
-      &Object::Pair(_, ref snd) => {
-        return Ok(*snd);
+      &Object::Sequence(_, ref tail) => {
+        return Ok(*tail);
       }
       _ => {
         return Err(Error::Tag);
@@ -312,52 +459,80 @@ impl Heap {
         }
         "]" => {
           let prev = stack.pop().ok_or(Error::Syntax)?;
-          let mut xs = self.nil()?;
+          let mut xs = self.new_id()?;
           for object in build.iter().rev() {
-            xs = self.new_pair(*object, xs)?;
+            xs = self.new_sequence(*object, xs)?;
           }
-          xs = self.new_wrap(xs)?;
+          xs = self.new_block(xs)?;
           build = prev;
           build.push(xs);
         }
+        "app" => {
+          let object = self.new_app()?;
+          build.push(object);
+        }
+        "bind" => {
+          let object = self.new_bind()?;
+          build.push(object);
+        }
+        "copy" => {
+          let object = self.new_copy()?;
+          build.push(object);
+        }
+        "drop" => {
+          let object = self.new_drop()?;
+          build.push(object);
+        }
+        "shift" => {
+          let object = self.new_shift()?;
+          build.push(object);
+        }
+        "reset" => {
+          let object = self.new_reset()?;
+          build.push(object);
+        }
         _ => {
-          let object = self.new_symbol(word.into())?;
+          let object = self.new_word(word.into())?;
           build.push(object);
         }
       }
     }
-    if stack.len() > 0 {
+    if !stack.is_empty() {
       return Err(Error::Syntax);
     }
-    let mut xs = self.nil()?;
+    let mut xs = self.new_id()?;
     for object in build.iter().rev() {
-      xs = self.new_pair(*object, xs)?;
+      xs = self.new_sequence(*object, xs)?;
     }
     return Ok(xs);
   }
 
   pub fn quote(&self, root: Pointer, buf: &mut String) -> Result<()> {
     match self.get_ref(root)? {
-      &Object::Nil => {
+      &Object::Id => {
         //
+      }
+      &Object::Function(ref value) => {
+        let string = value.to_string();
+        buf.push_str(&string);
       }
       &Object::Number(value) => {
         let string = value.to_string();
         buf.push_str(&string);
       }
-      &Object::Symbol(ref value) => {
+      &Object::Word(ref value) => {
         buf.push_str(&value);
       }
-      &Object::Wrap(body) => {
+      &Object::Block(body) => {
         buf.push('[');
         self.quote(body, buf)?;
         buf.push(']');
       }
-      &Object::Pair(fst, snd) => {
-        self.quote(fst, buf);
-        if !self.is_nil(snd)? {
+      &Object::Sequence(head, tail) => {
+        self.quote(head, buf)?;
+        if !self.is_id(tail)? {
           buf.push(' ');
-          self.quote(snd, buf);
+          self.quote(tail, buf)?;
         }
       }
     }
@@ -372,12 +547,12 @@ impl Heap {
         }
         node.is_visible = true;
         match &node.object {
-          &Object::Wrap(body) => {
+          &Object::Block(body) => {
             return self.visit(body);
           }
-          &Object::Pair(fst, snd) => {
-            self.visit(fst)?;
-            return self.visit(snd);
+          &Object::Sequence(head, tail) => {
+            self.visit(head)?;
+            return self.visit(tail);
           }
           _ => {
             return Ok(());
@@ -413,6 +588,17 @@ impl Heap {
       }
       None => {
         return Err(Error::Null);
+      }
+    }
+  }
+
+  fn get_function_ref(&self, pointer: Pointer) -> Result<&Function> {
+    match self.get_ref(pointer)? {
+      &Object::Function(ref value) => {
+        return Ok(value);
+      }
+      _ => {
+        return Err(Error::Tag);
       }
     }
   }

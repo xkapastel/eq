@@ -20,16 +20,15 @@ extern crate eq;
 use std::io::Write;
 
 fn main() {
-  let mut heap = eq::Heap::with_capacity(1024);
-  let mut buf = String::new();
+  let mut source_buffer = String::new();
+  let mut target_buffer = String::new();
   loop {
     print!("user@eq\nλ ");
     std::io::stdout().flush().unwrap();
-    buf.clear();
-    std::io::stdin().read_line(&mut buf).unwrap();
-    let object = heap.parse(&buf).unwrap();
-    buf.clear();
-    heap.quote(object, &mut buf).unwrap();
-    println!("object = {}", &buf);
+    source_buffer.clear();
+    target_buffer.clear();
+    std::io::stdin().read_line(&mut source_buffer).expect("stdin");
+    eq::eval(&source_buffer, &mut target_buffer, 1024, 1024).expect("eval");
+    println!("=> {}", &target_buffer);
   }
 }

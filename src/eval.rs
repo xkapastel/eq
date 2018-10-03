@@ -17,106 +17,137 @@
 
 use super::*;
 
-pub struct Machine {
-  data: Vec<Pointer>,
-  code: Vec<Pointer>,
-  heap: Heap,
+fn fetch(
+  code: &mut Vec<Pointer>,
+  heap: &mut Heap) -> Result<Pointer> {
+  loop {
+    let object = code.pop().ok_or(Error::Bug)?;
+    if heap.is_sequence(object)? {
+      let head = heap.get_sequence_head(object)?;
+      let tail = heap.get_sequence_tail(object)?;
+      code.push(tail);
+      code.push(head);
+    } else {
+      return Ok(object);
+    }
+  }
 }
 
-impl Machine {
-  fn with_capacity(capacity: usize) -> Self {
-    Machine {
-      data: Vec::new(),
-      code: Vec::new(),
-      heap: Heap::with_capacity(capacity),
-    }
-  }
-
-  fn push_data(&mut self, data: Pointer) -> Result<()> {
-    self.data.push(data);
-    return Ok(());
-  }
-
-  fn pop_data(&mut self) -> Result<Pointer> {
-    return self.data.pop().ok_or(Error::Bug);
-  }
-
-  fn push_code(&mut self, code: Pointer) -> Result<()> {
-    self.code.push(code);
-    return Ok(());
-  }
-
-  fn pop_code(&mut self) -> Result<Pointer> {
-    loop {
-      let object = self.code.pop().ok_or(Error::Bug)?;
-      if self.heap.is_pair(object)? {
-      let fst = self.heap.get_pair_fst(object)?;
-        let snd = self.heap.get_pair_snd(object)?;
-        self.code.push(snd);
-        self.code.push(fst);
-      } else {
-        return Ok(object);
+fn jump(
+  code: &mut Vec<Pointer>,
+  heap: &mut Heap) -> Result<Pointer> {
+  let mut buf = Vec::new();
+  loop {
+    let object = fetch(code, heap)?;
+    if heap.is_reset(object)? {
+      code.push(object);
+      let mut xs = heap.new_id()?;
+      for object in buf.iter().rev() {
+        xs = heap.new_sequence(*object, xs)?;
       }
+      xs = heap.new_block(xs)?;
+      return Ok(xs);
+    } else {
+      buf.push(object);
     }
   }
+}
 
-  fn jump_code(&mut self) -> Result<Pointer> {
-    let mut buf = Vec::new();
-    loop {
-      let object = self.pop_code()?;
-      if self.heap.is_reset(object)? {
-        self.push_code(object);
-        let mut xs = self.heap.nil()?;
-        for object in buf.iter().rev() {
-          xs = self.heap.new_pair(*object, xs)?;
-        }
-        return Ok(xs);
-      } else {
-        buf.push(object);
+fn freeze(
+  code: Pointer,
+  data: &mut Vec<Pointer>,
+  kill: &mut Vec<Pointer>) {
+  kill.append(data);
+  kill.push(code);
+}
+
+/// Evaluate the given string of Eq code.
+pub fn eval(
+  source: &str,
+  target: &mut String,
+  space: usize,
+  mut time: usize) -> Result<()> {
+  let mut heap = Heap::with_capacity(space);
+  let root = heap.parse(source)?;
+  let mut code = vec![root];
+  let mut data = vec![];
+  let mut kill = vec![];
+  // Technically the "kill" trick doesn't work anymore:
+  // if dead code later expands to something containing a
+  // shift, then the meaning of the code changes. For now
+  // I'll just ignore this but I'll need to think about
+  // how to address this later.
+  while time > 0 && !code.is_empty() {
+    time -= 1;
+    let object = fetch(&mut code, &mut heap)?;
+    if heap.is_number(object)? {
+      data.push(object);
+    } else if heap.is_block(object)? {
+      data.push(object);
+    } else if heap.is_app(object)? {
+      if data.len() < 2 {
+        freeze(object, &mut data, &mut kill);
+        continue;
       }
-    }
-  }
-
-  fn step(&mut self) -> Result<()> {
-    let object = self.pop_code()?;
-    if self.heap.is_number(object)? {
-      self.push_data(object)?;
-    } else if self.heap.is_wrap(object)? {
-      self.push_data(object)?;
-    } else if self.heap.is_app(object)? {
-      let func = self.pop_data()?;
-      let hide = self.pop_data()?;
-      assert(self.heap.is_wrap(func))?;
-      let func_body = self.heap.get_wrap_body(func)?;
-      let hide_wrap = self.heap.new_wrap(hide)?;
-      self.push_code(hide_wrap)?;
-      self.push_code(func_body)?;
-    } else if self.heap.is_bind(object)? {
-      let func = self.pop_data()?;
-      let show = self.pop_data()?;
-      assert(self.heap.is_wrap(func))?;
-      let func_body = self.heap.get_wrap_body(func)?;
-      let pair = self.heap.new_pair(show, func_body)?;
-      let wrap = self.heap.new_wrap(pair)?;
-      self.push_data(wrap)?;
-    } else if self.heap.is_copy(object)? {
-      let copy = self.pop_data()?;
-      self.push_data(copy)?;
-      self.push_data(copy)?;
-    } else if self.heap.is_drop(object)? {
-      self.pop_data()?;
-    } else if self.heap.is_shift(object)? {
-      let handler = self.pop_data()?;
-      let continuation = self.jump_code()?;
-      self.push_data(continuation)?;
-      self.push_code(handler)?;
-    } else if self.heap.is_reset(object)? {
-      //
-    } else if self.heap.is_nil(object)? {
+      let func = data.pop().ok_or(Error::Underflow)?;
+      let hide = data.pop().ok_or(Error::Underflow)?;
+      assert(heap.is_block(func))?;
+      let func_body = heap.get_block_body(func)?;
+      code.push(hide);
+      code.push(func_body);
+    } else if heap.is_bind(object)? {
+      if data.len() < 2 {
+        freeze(object, &mut data, &mut kill);
+        continue;
+      }
+      let func = data.pop().ok_or(Error::Underflow)?;
+      let show = data.pop().ok_or(Error::Underflow)?;
+      assert(heap.is_block(func))?;
+      let func_body = heap.get_block_body(func)?;
+      let sequence = heap.new_sequence(show, func_body)?;
+      let block = heap.new_block(sequence)?;
+      data.push(block);
+    } else if heap.is_copy(object)? {
+      if data.is_empty() {
+        freeze(object, &mut data, &mut kill);
+        continue;
+      }
+      let copy = data.last().ok_or(Error::Underflow)?;
+      data.push(*copy);
+    } else if heap.is_drop(object)? {
+      if data.is_empty() {
+        freeze(object, &mut data, &mut kill);
+        continue;
+      }
+      data.pop().ok_or(Error::Underflow)?;
+    } else if heap.is_shift(object)? {
+      // We should crash on underflow here due to effects (?)
+      let callback = data.pop().ok_or(Error::Underflow)?;
+      let callback_body = heap.get_block_body(callback)?;
+      let continuation = jump(&mut code, &mut heap)?;
+      code.push(callback_body);
+      data.push(continuation);
+    } else if heap.is_reset(object)? {
+      // If there's dead code, we can't delete stuff.
+      if !kill.is_empty() {
+        freeze(object, &mut data, &mut kill);
+      }
+    } else if heap.is_id(object)? {
       //
     } else {
-      return Err(Error::Stub);
+      freeze(object, &mut data, &mut kill);
     }
-    return Ok(());
   }
+  let mut xs = heap.new_id()?;
+  for object in code.iter() {
+    xs = heap.new_sequence(*object, xs)?;
+  }
+  for object in data.iter().rev() {
+    xs = heap.new_sequence(*object, xs)?;
+  }
+  for object in kill.iter().rev() {
+    xs = heap.new_sequence(*object, xs)?;
+  }
+  heap.quote(xs, target)?;
+  return Ok(());
 }
