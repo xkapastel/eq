@@ -1,6 +1,10 @@
 Eq is a blockchain database.
 
 * Language
+Eq is a concatenative language like Joy. If you're not familiar with
+concatenative languages, [[http://tunes.org/~iepos/joy.html][this is a very good introduction to the
+subject.]]
+
 #+BEGIN_SRC
 Γ [A] [B] apply*  Δ         == Γ  B* [A]        Δ
 Γ [A] [B] bind*   Δ         == Γ [[A] B]        Δ*
@@ -8,4 +12,36 @@ Eq is a blockchain database.
 Γ [A]     drop*   Δ         == Γ                Δ*
 Γ [A]     shift*  Δ reset Ε == Γ [Δ]  A* reset  Ε
 Γ         reset*  Δ         == Γ                Δ*
+
+Γ :- A
+A == B
+-------------------
+Γ := B
+
+Γ :- [F] [G] forall
+Γ :- [F] type
+Γ :- [G] type
+Γ :- [A] F
+-------------------
+Γ :- [A] G
+
+#+END_SRC
+
+* Dictionary
+The /dictionary/ is a key/value store associating words with code.
+
+A /block/ is a newline delimited list of transactions against the
+current dictionary. Executing a sequence of blocks constructs a
+dictionary.
+
+A transaction can define a new key:
+
+#+BEGIN_SRC
+:key value...
+#+END_SRC
+
+A transaction can delete a key:
+
+#+BEGIN_SRC
+~key
 #+END_SRC
