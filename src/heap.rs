@@ -245,36 +245,6 @@ impl Heap {
     return self.put(object);
   }
 
-  pub fn new_app(&mut self) -> Result<Pointer> {
-    let object = Object::Function(Function::App);
-    return self.put(object);
-  }
-
-  pub fn new_bind(&mut self) -> Result<Pointer> {
-    let object = Object::Function(Function::Bind);
-    return self.put(object);
-  }
-
-  pub fn new_copy(&mut self) -> Result<Pointer> {
-    let object = Object::Function(Function::Copy);
-    return self.put(object);
-  }
-
-  pub fn new_drop(&mut self) -> Result<Pointer> {
-    let object = Object::Function(Function::Drop);
-    return self.put(object);
-  }
-
-  pub fn new_shift(&mut self) -> Result<Pointer> {
-    let object = Object::Function(Function::Shift);
-    return self.put(object);
-  }
-
-  pub fn new_reset(&mut self) -> Result<Pointer> {
-    let object = Object::Function(Function::Reset);
-    return self.put(object);
-  }
-
   /// Creates a new number.
   pub fn new_number(&mut self, value: Number) -> Result<Pointer> {
     let object = Object::Number(value);
