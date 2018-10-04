@@ -18,8 +18,8 @@
 use super::*;
 
 fn fetch(
-  code: &mut Vec<Pointer>,
-  heap: &mut Heap) -> Result<Pointer> {
+  code: &mut Vec<heap::Pointer>,
+  heap: &mut heap::Heap) -> Result<heap::Pointer> {
   loop {
     let object = code.pop().ok_or(Error::Bug)?;
     if heap.is_sequence(object)? {
@@ -34,8 +34,8 @@ fn fetch(
 }
 
 fn jump(
-  code: &mut Vec<Pointer>,
-  heap: &mut Heap) -> Result<Pointer> {
+  code: &mut Vec<heap::Pointer>,
+  heap: &mut heap::Heap) -> Result<heap::Pointer> {
   let mut buf = Vec::new();
   loop {
     let object = fetch(code, heap)?;
@@ -45,8 +45,7 @@ fn jump(
       for object in buf.iter().rev() {
         xs = heap.new_sequence(*object, xs)?;
       }
-      xs = heap.new_block(xs)?;
-      return Ok(xs);
+      return heap.new_block(xs);
     } else {
       buf.push(object);
     }
@@ -54,29 +53,17 @@ fn jump(
 }
 
 fn freeze(
-  code: Pointer,
-  data: &mut Vec<Pointer>,
-  kill: &mut Vec<Pointer>) {
+  code: heap::Pointer,
+  data: &mut Vec<heap::Pointer>,
+  kill: &mut Vec<heap::Pointer>) {
   kill.append(data);
   kill.push(code);
 }
 
-/// Evaluate the given string of Eq code.
-pub fn eval(
-  source: &String,
-  target: &mut String,
-  space_quota: usize,
-  time_quota: usize) -> Result<()> {
-  let mut heap = Heap::with_capacity(space_quota);
-  let lhs = heap.parse(source)?;
-  let rhs = reduce(lhs, &mut heap, time_quota)?;
-  return heap.quote(rhs, target);
-}
-
-fn reduce(
-  root: Pointer,
-  heap: &mut Heap,
-  mut time: usize) -> Result<Pointer> {
+pub fn reduce(
+  root: heap::Pointer,
+  heap: &mut heap::Heap,
+  mut time: usize) -> Result<heap::Pointer> {
   let mut code = vec![root];
   let mut data = vec![];
   let mut kill = vec![];

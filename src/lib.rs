@@ -47,9 +47,18 @@ pub fn assert(flag: Result<bool>) -> Result<()> {
   }
 }
 
-mod heap;
-pub use self::heap::Pointer;
-pub use self::heap::Heap;
+pub mod heap;
+pub mod reduce;
 
-mod eval;
-pub use self::eval::eval;
+/// Rewrite a string of code, until it either reaches a normal form or
+/// the time quota is exhausted.
+pub fn eval(
+  source: &String,
+  target: &mut String,
+  space_quota: usize,
+  time_quota: usize) -> Result<()> {
+  let mut heap = heap::Heap::with_capacity(space_quota);
+  let lhs = heap.parse(source)?;
+  let rhs = reduce::reduce(lhs, &mut heap, time_quota)?;
+  return heap.quote(rhs, target);
+}
