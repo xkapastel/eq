@@ -114,6 +114,17 @@ pub fn reduce(
         continue;
       }
       data.pop().ok_or(Error::Underflow)?;
+    } else if heap.is_fix(object)? {
+      if data.is_empty() {
+        freeze(object, &mut data, &mut kill);
+        continue;
+      }
+      let block = data.pop().ok_or(Error::Underflow)?;
+      let block_body = heap.get_block_body(block)?;
+      let lhs = heap.new_sequence(block, object)?;
+      let rhs = heap.new_sequence(lhs, block_body)?;
+      let fix = heap.new_block(rhs)?;
+      data.push(fix);
     } else if heap.is_shift(object)? {
       // Is this correct? Should we crash instead?
       if data.is_empty() {

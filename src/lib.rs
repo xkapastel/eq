@@ -53,7 +53,7 @@ pub mod reduce;
 /// Rewrite a string of code, until it either reaches a normal form or
 /// the time quota is exhausted.
 pub fn eval(
-  source: &String,
+  source: &str,
   target: &mut String,
   space_quota: usize,
   time_quota: usize) -> Result<()> {

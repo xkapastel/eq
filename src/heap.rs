@@ -33,6 +33,7 @@ enum Function {
   Bind,
   Copy,
   Drop,
+  Fix,
   Shift,
   Reset,
 }
@@ -89,6 +90,9 @@ impl Function {
       "d" => {
         Some(Function::Drop)
       }
+      "f" => {
+        Some(Function::Fix)
+      }
       "s" => {
         Some(Function::Shift)
       }
@@ -114,6 +118,9 @@ impl Function {
       }
       Function::Drop => {
         target.push('d');
+      }
+      Function::Fix => {
+        target.push('f');
       }
       Function::Shift => {
         target.push('s');
@@ -148,6 +155,13 @@ impl Function {
   fn is_drop(&self) -> bool {
     match self {
       Function::Drop => true,
+      _ => false,
+    }
+  }
+
+  fn is_fix(&self) -> bool {
+    match self {
+      Function::Fix => true,
       _ => false,
     }
   }
@@ -326,6 +340,14 @@ impl Heap {
     }
     let object = self.get_function_ref(pointer)?;
     return Ok(object.is_drop());
+  }
+
+  pub fn is_fix(&self, pointer: Pointer) -> Result<bool> {
+    if !self.is_function(pointer)? {
+      return Ok(false);
+    }
+    let object = self.get_function_ref(pointer)?;
+    return Ok(object.is_fix());
   }
 
   pub fn is_shift(&self, pointer: Pointer) -> Result<bool> {
