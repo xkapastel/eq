@@ -75,27 +75,52 @@ impl Pointer {
 }
 
 impl Function {
-  fn to_string(&self) -> String {
+  fn from_string(src: &str) -> Option<Self> {
+    match src {
+      "a" => {
+        Some(Function::App)
+      }
+      "b" => {
+        Some(Function::Bind)
+      }
+      "c" => {
+        Some(Function::Copy)
+      }
+      "d" => {
+        Some(Function::Drop)
+      }
+      "s" => {
+        Some(Function::Shift)
+      }
+      "r" => {
+        Some(Function::Reset)
+      }
+      _ => {
+        None
+      }
+    }
+  }
+
+  fn quote(&self, target: &mut String) {
     match self {
       Function::App => {
-        return String::from("app");
+        target.push('a');
       }
       Function::Bind => {
-        return String::from("bind");
+        target.push('b');
       }
       Function::Copy => {
-        return String::from("copy");
+        target.push('c');
       }
       Function::Drop => {
-        return String::from("drop");
+        target.push('d');
       }
       Function::Shift => {
-        return String::from("shift");
+        target.push('s');
       }
       Function::Reset => {
-        return String::from("reset");
+        target.push('r');
       }
-      
     }
   }
   
@@ -212,6 +237,11 @@ impl Heap {
   /// Returns the id object
   pub fn new_id(&mut self) -> Result<Pointer> {
     let object = Object::Id;
+    return self.put(object);
+  }
+
+  fn new_function(&mut self, func: Function) -> Result<Pointer> {
+    let object = Object::Function(func);
     return self.put(object);
   }
 
@@ -467,32 +497,16 @@ impl Heap {
           build = prev;
           build.push(xs);
         }
-        "app" => {
-          let object = self.new_app()?;
-          build.push(object);
-        }
-        "bind" => {
-          let object = self.new_bind()?;
-          build.push(object);
-        }
-        "copy" => {
-          let object = self.new_copy()?;
-          build.push(object);
-        }
-        "drop" => {
-          let object = self.new_drop()?;
-          build.push(object);
-        }
-        "shift" => {
-          let object = self.new_shift()?;
-          build.push(object);
-        }
-        "reset" => {
-          let object = self.new_reset()?;
-          build.push(object);
-        }
         _ => {
-          let object = self.new_word(word.into())?;
+          let object;
+          match Function::from_string(word) {
+            Some(func) => {
+              object = self.new_function(func)?;
+            }
+            None => {
+              object = self.new_word(word.into())?;
+            }
+          }
           build.push(object);
         }
       }
@@ -513,8 +527,7 @@ impl Heap {
         //
       }
       &Object::Function(ref value) => {
-        let string = value.to_string();
-        buf.push_str(&string);
+        value.quote(buf);
       }
       &Object::Number(value) => {
         let string = value.to_string();
