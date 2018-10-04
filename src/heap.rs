@@ -75,7 +75,7 @@ impl Pointer {
 }
 
 impl Function {
-  fn from_string(src: &str) -> Option<Self> {
+  fn parse(src: &str) -> Option<Self> {
     match src {
       "a" => {
         Some(Function::App)
@@ -499,7 +499,7 @@ impl Heap {
         }
         _ => {
           let object;
-          match Function::from_string(word) {
+          match Function::parse(word) {
             Some(func) => {
               object = self.new_function(func)?;
             }

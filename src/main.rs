@@ -22,13 +22,20 @@ use std::io::Write;
 fn main() {
   let mut source_buffer = String::new();
   let mut target_buffer = String::new();
+  let space_quota = 1024;
+  let time_quota = 1024;
   loop {
     print!("user@eq\nλ ");
     std::io::stdout().flush().unwrap();
     source_buffer.clear();
     target_buffer.clear();
-    std::io::stdin().read_line(&mut source_buffer).expect("stdin");
-    eq::eval(&source_buffer, &mut target_buffer, 1024, 1024).expect("eval");
+    std::io::stdin().read_line(
+      &mut source_buffer).expect("stdin");
+    eq::eval(
+      &source_buffer,
+      &mut target_buffer,
+      space_quota,
+      time_quota).expect("eval");
     println!("=> {}", &target_buffer);
   }
 }
