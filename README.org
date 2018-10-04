@@ -12,20 +12,16 @@ subject.]]
 Γ [A]     drop*   Δ         == Γ                Δ*
 Γ [A]     shift*  Δ reset Ε == Γ [Δ]  A* reset  Ε
 Γ         reset*  Δ         == Γ                Δ*
-
-Γ :- A
-A == B
--------------------
-Γ := B
-
-Γ :- [F] [G] forall
-Γ :- [F] type
-Γ :- [G] type
-Γ :- [A] F
--------------------
-Γ :- [A] G
-
 #+END_SRC
+
+Delimited continuations give expressive power related to monadic
+effects. I think they're a good idea especially given the widespread
+embrace of e.g. async/await in C#, JavaScript, Rust etc. Surely
+shift/reset would help with expression of [[https://awelonblue.wordpress.com/2018/06/19/rdp-simplified/][RDP]].
+
+Illative logic seems useful for types, but I'm actually not sure how
+to represent judgements and I think I'm gonna pull it for now since
+it's very complicated.
 
 * Dictionary
 The /dictionary/ is a key/value store associating words with code.
