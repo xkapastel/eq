@@ -18,26 +18,3 @@ Delimited continuations give expressive power related to monadic
 effects. I think they're a good idea especially given the widespread
 embrace of e.g. async/await in C#, JavaScript, Rust etc. Surely
 shift/reset would help with expression of [[https://awelonblue.wordpress.com/2018/06/19/rdp-simplified/][RDP]].
-
-Illative logic seems useful for types, but I'm actually not sure how
-to represent judgements and I think I'm gonna pull it for now since
-it's very complicated.
-
-* Dictionary
-The /dictionary/ is a key/value store associating words with code.
-
-A /block/ is a newline delimited list of transactions against the
-current dictionary. Executing a sequence of blocks constructs a
-dictionary.
-
-A transaction can define a new key:
-
-#+BEGIN_SRC
-:key value...
-#+END_SRC
-
-A transaction can delete a key:
-
-#+BEGIN_SRC
-~key
-#+END_SRC

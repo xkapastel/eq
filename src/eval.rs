@@ -63,23 +63,30 @@ fn freeze(
 
 /// Evaluate the given string of Eq code.
 pub fn eval(
-  source: &str,
+  source: &String,
   target: &mut String,
-  space: usize,
-  mut time: usize) -> Result<()> {
-  let mut heap = Heap::with_capacity(space);
-  let root = heap.parse(source)?;
+  space_quota: usize,
+  time_quota: usize) -> Result<()> {
+  let mut heap = Heap::with_capacity(space_quota);
+  let lhs = heap.parse(source)?;
+  let rhs = reduce(lhs, &mut heap, time_quota)?;
+  return heap.quote(rhs, target);
+}
+
+fn reduce(
+  root: Pointer,
+  heap: &mut Heap,
+  mut time: usize) -> Result<Pointer> {
   let mut code = vec![root];
   let mut data = vec![];
   let mut kill = vec![];
-  // Technically the "kill" trick doesn't work anymore:
-  // if dead code later expands to something containing a
-  // shift, then the meaning of the code changes. For now
-  // I'll just ignore this but I'll need to think about
-  // how to address this later.
+  // The "kill" trick has some problems: if dead code later expands to
+  // something containing a shift, then the meaning of the code
+  // changes. I *think* it's okay if we only remove resets when
+  // there's no dead code, but I'll need to test it more.
   while time > 0 && !code.is_empty() {
     time -= 1;
-    let object = fetch(&mut code, &mut heap)?;
+    let object = fetch(&mut code, heap)?;
     if heap.is_number(object)? {
       data.push(object);
     } else if heap.is_block(object)? {
@@ -121,10 +128,14 @@ pub fn eval(
       }
       data.pop().ok_or(Error::Underflow)?;
     } else if heap.is_shift(object)? {
-      // We should crash on underflow here due to effects (?)
+      // Is this correct? Should we crash instead?
+      if data.is_empty() {
+        freeze(object, &mut data, &mut kill);
+        continue;
+      }
       let callback = data.pop().ok_or(Error::Underflow)?;
       let callback_body = heap.get_block_body(callback)?;
-      let continuation = jump(&mut code, &mut heap)?;
+      let continuation = jump(&mut code, heap)?;
       code.push(callback_body);
       data.push(continuation);
     } else if heap.is_reset(object)? {
@@ -148,6 +159,5 @@ pub fn eval(
   for object in kill.iter().rev() {
     xs = heap.new_sequence(*object, xs)?;
   }
-  heap.quote(xs, target)?;
-  return Ok(());
+  return Ok(xs);
 }
