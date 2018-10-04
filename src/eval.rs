@@ -84,7 +84,7 @@ pub fn eval(
       data.push(object);
     } else if heap.is_block(object)? {
       data.push(object);
-    } else if heap.is_app(object)? {
+    } else if heap.is_apply(object)? {
       if data.len() < 2 {
         freeze(object, &mut data, &mut kill);
         continue;

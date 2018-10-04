@@ -29,7 +29,7 @@ pub struct Pointer {
 pub type Number = f64;
 
 enum Function {
-  App,
+  Apply,
   Bind,
   Copy,
   Drop,
@@ -78,7 +78,7 @@ impl Function {
   fn parse(src: &str) -> Option<Self> {
     match src {
       "a" => {
-        Some(Function::App)
+        Some(Function::Apply)
       }
       "b" => {
         Some(Function::Bind)
@@ -103,7 +103,7 @@ impl Function {
 
   fn quote(&self, target: &mut String) {
     match self {
-      Function::App => {
+      Function::Apply => {
         target.push('a');
       }
       Function::Bind => {
@@ -124,9 +124,9 @@ impl Function {
     }
   }
   
-  fn is_app(&self) -> bool {
+  fn is_apply(&self) -> bool {
     match self {
-      Function::App => true,
+      Function::Apply => true,
       _ => false,
     }
   }
@@ -296,12 +296,12 @@ impl Heap {
     return Ok(object.is_word());
   }
 
-  pub fn is_app(&self, pointer: Pointer) -> Result<bool> {
+  pub fn is_apply(&self, pointer: Pointer) -> Result<bool> {
     if !self.is_function(pointer)? {
       return Ok(false);
     }
     let object = self.get_function_ref(pointer)?;
-    return Ok(object.is_app());
+    return Ok(object.is_apply());
   }
 
   pub fn is_bind(&self, pointer: Pointer) -> Result<bool> {
