@@ -76,61 +76,6 @@ impl Pointer {
 }
 
 impl Function {
-  fn parse(src: &str) -> Option<Self> {
-    match src {
-      "a" => {
-        Some(Function::Apply)
-      }
-      "b" => {
-        Some(Function::Bind)
-      }
-      "c" => {
-        Some(Function::Copy)
-      }
-      "d" => {
-        Some(Function::Drop)
-      }
-      "f" => {
-        Some(Function::Fix)
-      }
-      "s" => {
-        Some(Function::Shift)
-      }
-      "r" => {
-        Some(Function::Reset)
-      }
-      _ => {
-        None
-      }
-    }
-  }
-
-  fn quote(&self, target: &mut String) {
-    match self {
-      Function::Apply => {
-        target.push('a');
-      }
-      Function::Bind => {
-        target.push('b');
-      }
-      Function::Copy => {
-        target.push('c');
-      }
-      Function::Drop => {
-        target.push('d');
-      }
-      Function::Fix => {
-        target.push('f');
-      }
-      Function::Shift => {
-        target.push('s');
-      }
-      Function::Reset => {
-        target.push('r');
-      }
-    }
-  }
-  
   fn is_apply(&self) -> bool {
     match self {
       Function::Apply => true,
@@ -467,19 +412,16 @@ impl Heap {
     return Ok(());
   }
 
-  pub fn parse(&mut self, raw: &str) -> Result<Pointer> {
+  pub fn parse(&mut self, src: &str) -> Result<Pointer> {
     let mut build = Vec::new();
     let mut stack = Vec::new();
-    let src = raw
-      .replace("[", "[ ")
-      .replace("]", " ]");
-    for word in src.split_whitespace() {
-      match word {
-        "[" => {
+    for rune in src.chars() {
+      match rune {
+        '[' => {
           stack.push(build);
           build = Vec::new();
         }
-        "]" => {
+        ']' => {
           let prev = stack.pop().ok_or(Error::Syntax)?;
           let mut xs = self.new_id()?;
           for object in build.iter().rev() {
@@ -489,17 +431,51 @@ impl Heap {
           build = prev;
           build.push(xs);
         }
-        _ => {
-          let object;
-          match Function::parse(word) {
-            Some(func) => {
-              object = self.new_function(func)?;
-            }
-            None => {
-              object = self.new_word(word.into())?;
-            }
-          }
+        'a' => {
+          let func = Function::Apply;
+          let object = self.new_function(func)?;
           build.push(object);
+        }
+        'b' => {
+          let func = Function::Bind;
+          let object = self.new_function(func)?;
+          build.push(object);
+        }
+        'c' => {
+          let func = Function::Copy;
+          let object = self.new_function(func)?;
+          build.push(object);
+        }
+        'd' => {
+          let func = Function::Drop;
+          let object = self.new_function(func)?;
+          build.push(object);
+        }
+        'f' => {
+          let func = Function::Fix;
+          let object = self.new_function(func)?;
+          build.push(object);
+        }
+        's' => {
+          let func = Function::Shift;
+          let object = self.new_function(func)?;
+          build.push(object);
+        }
+        'r' => {
+          let func = Function::Reset;
+          let object = self.new_function(func)?;
+          build.push(object);
+        }
+        ' ' | '\t' | '\r' | '\n' => {
+          //
+        }
+        _ => {
+          if rune.is_uppercase() {
+            let object = self.new_word(rune.to_string().into())?;
+            build.push(object);
+          } else {
+            return Err(Error::Syntax);
+          }
         }
       }
     }
@@ -519,7 +495,29 @@ impl Heap {
         //
       }
       &Object::Function(ref value) => {
-        value.quote(buf);
+        match value {
+          Function::Apply => {
+            buf.push('a');
+          }
+          Function::Bind => {
+            buf.push('b');
+          }
+          Function::Copy => {
+            buf.push('c');
+          }
+          Function::Drop => {
+            buf.push('d');
+          }
+          Function::Fix => {
+            buf.push('f');
+          }
+          Function::Shift => {
+            buf.push('s');
+          }
+          Function::Reset => {
+            buf.push('r');
+          }
+        }
       }
       &Object::Number(value) => {
         let string = value.to_string();
@@ -535,10 +533,7 @@ impl Heap {
       }
       &Object::Sequence(head, tail) => {
         self.quote(head, buf)?;
-        if !self.is_id(tail)? {
-          buf.push(' ');
-          self.quote(tail, buf)?;
-        }
+        self.quote(tail, buf)?;
       }
     }
     return Ok(());

@@ -17,6 +17,7 @@
 
 use super::*;
 
+// Get the next function to be executed.
 fn fetch(
   code: &mut Vec<heap::Pointer>,
   heap: &mut heap::Heap) -> Result<heap::Pointer> {
@@ -33,6 +34,7 @@ fn fetch(
   }
 }
 
+// Return all of the code up to the next reset.
 fn jump(
   code: &mut Vec<heap::Pointer>,
   heap: &mut heap::Heap) -> Result<heap::Pointer> {
@@ -52,6 +54,7 @@ fn jump(
   }
 }
 
+// The current instruction and everything on the stack become dead code.
 fn freeze(
   code: heap::Pointer,
   data: &mut Vec<heap::Pointer>,
@@ -60,6 +63,8 @@ fn freeze(
   kill.push(code);
 }
 
+/// Rewrite a term until it either reaches normal form or time runs
+/// out.
 pub fn reduce(
   root: heap::Pointer,
   heap: &mut heap::Heap,
@@ -79,6 +84,7 @@ pub fn reduce(
     } else if heap.is_block(object)? {
       data.push(object);
     } else if heap.is_apply(object)? {
+      // [A][B]a = B[A]
       if data.len() < 2 {
         freeze(object, &mut data, &mut kill);
         continue;
@@ -90,6 +96,7 @@ pub fn reduce(
       code.push(hide);
       code.push(func_body);
     } else if heap.is_bind(object)? {
+      // [A][B]b = [[A]B]
       if data.len() < 2 {
         freeze(object, &mut data, &mut kill);
         continue;
@@ -102,6 +109,7 @@ pub fn reduce(
       let block = heap.new_block(sequence)?;
       data.push(block);
     } else if heap.is_copy(object)? {
+      // [A]c = [A] [A]
       if data.is_empty() {
         freeze(object, &mut data, &mut kill);
         continue;
@@ -109,12 +117,14 @@ pub fn reduce(
       let copy = data.last().ok_or(Error::Underflow)?;
       data.push(*copy);
     } else if heap.is_drop(object)? {
+      // [A] d =
       if data.is_empty() {
         freeze(object, &mut data, &mut kill);
         continue;
       }
       data.pop().ok_or(Error::Underflow)?;
     } else if heap.is_fix(object)? {
+      // [A]f = [[A]fA]
       if data.is_empty() {
         freeze(object, &mut data, &mut kill);
         continue;
@@ -126,6 +136,7 @@ pub fn reduce(
       let fix = heap.new_block(rhs)?;
       data.push(fix);
     } else if heap.is_shift(object)? {
+      // [A]sBr = [B]Ar
       // Is this correct? Should we crash instead?
       if data.is_empty() {
         freeze(object, &mut data, &mut kill);
@@ -137,6 +148,7 @@ pub fn reduce(
       code.push(callback_body);
       data.push(continuation);
     } else if heap.is_reset(object)? {
+      // r =
       // If there's dead code, we can't delete stuff.
       if !kill.is_empty() {
         freeze(object, &mut data, &mut kill);
