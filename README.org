@@ -1,21 +1,13 @@
 Eq is a blockchain database.
 
-* Language
-Eq is a concatenative language like Joy. If you're not familiar with
-concatenative languages, [[http://tunes.org/~iepos/joy.html][this is a very good introduction to the
-subject.]]
+* Bytecode
+Eq bytecode is a [[http://tunes.org/~iepos/joy.html][concatenative language.]]
 
 #+BEGIN_SRC
-Γ [A] [B] a* Δ     == Γ  B* [A]   Δ
-Γ [A] [B] b* Δ     == Γ [[A] B]   Δ*
-Γ [A]     c* Δ     == Γ [A] [A]   Δ*
-Γ [A]     d* Δ     == Γ           Δ*
-Γ [A]     f* Δ     == Γ [[A] f A] Δ*
-Γ [A]     s* Δ r Ε == Γ [Δ]  A* r Ε
-Γ         r* Δ     == Γ           Δ*
+[A][B]a = B[A]
+[A][B]b = [[A]B]
+[A]c    = [A][A]
+[A]d    =
+[A]f    = [[A]fA]
+[A]sBr  = [B]Ar
 #+END_SRC
-
-Delimited continuations give expressive power related to monadic
-effects. I think they're a good idea especially given the widespread
-embrace of e.g. async/await in C#, JavaScript, Rust etc. Surely
-shift/reset would help with expression of [[https://awelonblue.wordpress.com/2018/06/19/rdp-simplified/][RDP]].

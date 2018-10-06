@@ -5,3 +5,4 @@ authors = ["Matthew Blount <xkapastel@gmail.com>"]
 edition = "2018"
 
 [dependencies]
+irc = "0.13"

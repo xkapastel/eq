@@ -1,0 +1,2 @@
+A simple IRC bot that manipulates Eq bytecode.
+
