@@ -451,14 +451,18 @@ impl Heap {
     let mut build = Vec::new();
     let mut stack = Vec::new();
     let mut brackets = Vec::new();
-    for rune in src.chars() {
-      match rune {
-        '{' => {
+    let src = src.replace("{", "{ ");
+    let src = src.replace("}", " }");
+    let src = src.replace("[", "[ ");
+    let src = src.replace("]", " ]");
+    for word in src.split_whitespace() {
+      match word {
+        "{" => {
           brackets.push('{');
           stack.push(build);
           build = Vec::new();
         }
-        '}' => {
+        "}" => {
           let current_bracket = brackets.pop().ok_or(Error::Syntax)?;
           if current_bracket != '{' {
             return Err(Error::Syntax);
@@ -472,12 +476,12 @@ impl Heap {
           build = prev;
           build.push(xs);
         }
-        '[' => {
+        "[" => {
           brackets.push('[');
           stack.push(build);
           build = Vec::new();
         }
-        ']' => {
+        "]" => {
           let current_bracket = brackets.pop().ok_or(Error::Syntax)?;
           if current_bracket != '[' {
             return Err(Error::Syntax);
@@ -491,56 +495,49 @@ impl Heap {
           build = prev;
           build.push(xs);
         }
-        'b' => {
+        "apply" => {
           let func = Function::Apply;
           let object = self.new_function(func)?;
           build.push(object);
         }
-        'c' => {
+        "bind" => {
           let func = Function::Bind;
           let object = self.new_function(func)?;
           build.push(object);
         }
-        'd' => {
+        "compose" => {
           let func = Function::Compose;
           let object = self.new_function(func)?;
           build.push(object);
         }
-        'f' => {
+        "copy" => {
           let func = Function::Copy;
           let object = self.new_function(func)?;
           build.push(object);
         }
-        'g' => {
+        "drop" => {
           let func = Function::Drop;
           let object = self.new_function(func)?;
           build.push(object);
         }
-        'h' => {
+        "swap" => {
           let func = Function::Swap;
           let object = self.new_function(func)?;
           build.push(object);
         }
-        'j' => {
+        "fix" => {
           let func = Function::Fix;
           let object = self.new_function(func)?;
           build.push(object);
         }
-        'k' => {
+        "shift" => {
           let func = Function::Shift;
           let object = self.new_function(func)?;
           build.push(object);
         }
-        ' ' | '\t' | '\r' | '\n' => {
-          //
-        }
         _ => {
-          if rune.is_uppercase() {
-            let object = self.new_word(rune.to_string().into())?;
-            build.push(object);
-          } else {
-            return Err(Error::Syntax);
-          }
+          let object = self.new_word(word.into())?;
+          build.push(object);
         }
       }
     }
@@ -562,28 +559,28 @@ impl Heap {
       &Object::Function(ref value) => {
         match value {
           Function::Apply => {
-            buf.push('b');
+            buf.push_str("apply");
           }
           Function::Bind => {
-            buf.push('c');
+            buf.push_str("bind");
           }
           Function::Compose => {
-            buf.push('d');
+            buf.push_str("compose");
           }
           Function::Copy => {
-            buf.push('f');
+            buf.push_str("copy");
           }
           Function::Drop => {
-            buf.push('g');
+            buf.push_str("drop");
           }
           Function::Swap => {
-            buf.push('h');
+            buf.push_str("swap");
           }
           Function::Fix => {
-            buf.push('j');
+            buf.push_str("fix");
           }
           Function::Shift => {
-            buf.push('k');
+            buf.push_str("shift");
           }
         }
       }
@@ -600,13 +597,16 @@ impl Heap {
         buf.push(']');
       }
       &Object::Arrow(body) => {
-        buf.push('{');
+        buf.push_str("{ ");
         self.quote(body, buf)?;
-        buf.push('}');
+        buf.push_str(" }");
       }
       &Object::Sequence(head, tail) => {
         self.quote(head, buf)?;
-        self.quote(tail, buf)?;
+        if !self.is_id(tail)? {
+          buf.push(' ');
+          self.quote(tail, buf)?;
+        }
       }
     }
     return Ok(());

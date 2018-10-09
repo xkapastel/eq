@@ -237,8 +237,9 @@ impl Thread {
       }
     } else if self.heap.is_word(code)? {
       self.crash(code);
+      return Ok(());
     } else if self.heap.is_id(code)? {
-      //
+      return Ok(());
     } else {
       return Err(Error::Bug);
     }
