@@ -32,6 +32,20 @@ pub enum Error {
 /// The result of an Eq computation.
 pub type Result<T> = std::result::Result<T, Error>;
 
+pub type Number = f64;
+
+#[derive(Debug, Copy, Clone)]
+pub enum Function {
+  Apply,
+  Bind,
+  Compose,
+  Copy,
+  Drop,
+  Swap,
+  Fix,
+  Shift,
+}
+
 /// Halt the computation is the given condition is false.
 pub fn assert(flag: Result<bool>) -> Result<()> {
   match flag {
@@ -56,9 +70,13 @@ pub fn eval(
   source: &str,
   target: &mut String,
   space_quota: usize,
-  time_quota: usize) -> Result<()> {
+  mut time_quota: usize) -> Result<()> {
   let mut heap = heap::Heap::with_capacity(space_quota);
-  let lhs = heap.parse(source)?;
-  let rhs = reduce::reduce(lhs, &mut heap, time_quota)?;
-  return heap.quote(rhs, target);
+  let continuation = heap.parse(source)?;
+  let mut thread = reduce::Thread::with_continuation(continuation, heap);
+  while time_quota > 0 && thread.has_continuation() {
+    time_quota -= 1;
+    thread.step()?;
+  }
+  return thread.dump(target);
 }

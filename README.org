@@ -4,10 +4,15 @@ Eq is a blockchain database.
 Eq bytecode is a [[http://tunes.org/~iepos/joy.html][concatenative language.]]
 
 #+BEGIN_SRC
-[A][B]a = B[A]
-[A][B]b = [[A]B]
-[A]c    = [A][A]
-[A]d    =
-[A]f    = [[A]fA]
-[A]sBr  = [B]Ar
+    [A]b = A
+    [A]c = [[A]]
+ [A][B]d = [AB]
+    [A]f = [A][A]
+    [A]g =
+ [A][B]h = [B][A]
+    [A]j = [[A]jA]
+{A[F]kB} = {[A][B]F}
 #+END_SRC
+
+* The Forth Hacker's Guide to Neural Networks
+~{k}~ to implement backpropagation.

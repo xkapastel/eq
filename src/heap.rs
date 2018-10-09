@@ -26,24 +26,13 @@ pub struct Pointer {
   generation: u64,
 }
 
-pub type Number = f64;
-
-enum Function {
-  Apply,
-  Bind,
-  Copy,
-  Drop,
-  Fix,
-  Shift,
-  Reset,
-}
-
 enum Object {
   Id,
   Number(Number),
   Word(Rc<str>),
   Function(Function),
   Block(Pointer),
+  Arrow(Pointer),
   Sequence(Pointer, Pointer),
 }
 
@@ -90,6 +79,13 @@ impl Function {
     }
   }
 
+  fn is_compose(&self) -> bool {
+    match self {
+      Function::Compose => true,
+      _ => false,
+    }
+  }
+
   fn is_copy(&self) -> bool {
     match self {
       Function::Copy => true,
@@ -104,6 +100,13 @@ impl Function {
     }
   }
 
+  fn is_swap(&self) -> bool {
+    match self {
+      Function::Swap => true,
+      _ => false,
+    }
+  }
+
   fn is_fix(&self) -> bool {
     match self {
       Function::Fix => true,
@@ -114,13 +117,6 @@ impl Function {
   fn is_shift(&self) -> bool {
     match self {
       Function::Shift => true,
-      _ => false,
-    }
-  }
-
-  fn is_reset(&self) -> bool {
-    match self {
-      Function::Reset => true,
       _ => false,
     }
   }
@@ -158,6 +154,13 @@ impl Object {
   fn is_block(&self) -> bool {
     match self {
       Object::Block(_) => true,
+      _ => false,
+    }
+  }
+
+  fn is_arrow(&self) -> bool {
+    match self {
+      Object::Arrow(_) => true,
       _ => false,
     }
   }
@@ -222,6 +225,12 @@ impl Heap {
     return self.put(object);
   }
 
+  /// Creates a new arrow.
+  pub fn new_arrow(&mut self, body: Pointer) -> Result<Pointer> {
+    let object = Object::Arrow(body);
+    return self.put(object);
+  }
+
   /// Creates a new sequence.
   pub fn new_sequence(
     &mut self,
@@ -259,7 +268,7 @@ impl Heap {
     if !self.is_function(pointer)? {
       return Ok(false);
     }
-    let object = self.get_function_ref(pointer)?;
+    let object = self.get_function(pointer)?;
     return Ok(object.is_apply());
   }
 
@@ -267,15 +276,23 @@ impl Heap {
     if !self.is_function(pointer)? {
       return Ok(false);
     }
-    let object = self.get_function_ref(pointer)?;
+    let object = self.get_function(pointer)?;
     return Ok(object.is_bind());
+  }
+
+  pub fn is_compose(&self, pointer: Pointer) -> Result<bool> {
+    if !self.is_function(pointer)? {
+      return Ok(false);
+    }
+    let object = self.get_function(pointer)?;
+    return Ok(object.is_compose());
   }
 
   pub fn is_copy(&self, pointer: Pointer) -> Result<bool> {
     if !self.is_function(pointer)? {
       return Ok(false);
     }
-    let object = self.get_function_ref(pointer)?;
+    let object = self.get_function(pointer)?;
     return Ok(object.is_copy());
   }
 
@@ -283,15 +300,23 @@ impl Heap {
     if !self.is_function(pointer)? {
       return Ok(false);
     }
-    let object = self.get_function_ref(pointer)?;
+    let object = self.get_function(pointer)?;
     return Ok(object.is_drop());
+  }
+
+  pub fn is_swap(&self, pointer: Pointer) -> Result<bool> {
+    if !self.is_function(pointer)? {
+      return Ok(false);
+    }
+    let object = self.get_function(pointer)?;
+    return Ok(object.is_swap());
   }
 
   pub fn is_fix(&self, pointer: Pointer) -> Result<bool> {
     if !self.is_function(pointer)? {
       return Ok(false);
     }
-    let object = self.get_function_ref(pointer)?;
+    let object = self.get_function(pointer)?;
     return Ok(object.is_fix());
   }
 
@@ -299,22 +324,20 @@ impl Heap {
     if !self.is_function(pointer)? {
       return Ok(false);
     }
-    let object = self.get_function_ref(pointer)?;
+    let object = self.get_function(pointer)?;
     return Ok(object.is_shift());
-  }
-
-  pub fn is_reset(&self, pointer: Pointer) -> Result<bool> {
-    if !self.is_function(pointer)? {
-      return Ok(false);
-    }
-    let object = self.get_function_ref(pointer)?;
-    return Ok(object.is_reset());
   }
 
   /// Predicates blocks.
   pub fn is_block(&self, pointer: Pointer) -> Result<bool> {
     let object = self.get_ref(pointer)?;
     return Ok(object.is_block());
+  }
+
+  /// Predicates arrows.
+  pub fn is_arrow(&self, pointer: Pointer) -> Result<bool> {
+    let object = self.get_ref(pointer)?;
+    return Ok(object.is_arrow());
   }
 
   /// Predicates sequences.
@@ -357,6 +380,18 @@ impl Heap {
   pub fn get_block_body(&self, pointer: Pointer) -> Result<Pointer> {
     match self.get_ref(pointer)? {
       &Object::Block(ref body) => {
+        return Ok(*body);
+      }
+      _ => {
+        return Err(Error::Tag);
+      }
+    }
+  }
+
+  /// Get the body of an arrow.
+  pub fn get_arrow_body(&self, pointer: Pointer) -> Result<Pointer> {
+    match self.get_ref(pointer)? {
+      &Object::Arrow(ref body) => {
         return Ok(*body);
       }
       _ => {
@@ -415,13 +450,38 @@ impl Heap {
   pub fn parse(&mut self, src: &str) -> Result<Pointer> {
     let mut build = Vec::new();
     let mut stack = Vec::new();
+    let mut brackets = Vec::new();
     for rune in src.chars() {
       match rune {
+        '{' => {
+          brackets.push('{');
+          stack.push(build);
+          build = Vec::new();
+        }
+        '}' => {
+          let current_bracket = brackets.pop().ok_or(Error::Syntax)?;
+          if current_bracket != '{' {
+            return Err(Error::Syntax);
+          }
+          let prev = stack.pop().ok_or(Error::Syntax)?;
+          let mut xs = self.new_id()?;
+          for object in build.iter().rev() {
+            xs = self.new_sequence(*object, xs)?;
+          }
+          xs = self.new_arrow(xs)?;
+          build = prev;
+          build.push(xs);
+        }
         '[' => {
+          brackets.push('[');
           stack.push(build);
           build = Vec::new();
         }
         ']' => {
+          let current_bracket = brackets.pop().ok_or(Error::Syntax)?;
+          if current_bracket != '[' {
+            return Err(Error::Syntax);
+          }
           let prev = stack.pop().ok_or(Error::Syntax)?;
           let mut xs = self.new_id()?;
           for object in build.iter().rev() {
@@ -431,38 +491,43 @@ impl Heap {
           build = prev;
           build.push(xs);
         }
-        'a' => {
+        'b' => {
           let func = Function::Apply;
           let object = self.new_function(func)?;
           build.push(object);
         }
-        'b' => {
+        'c' => {
           let func = Function::Bind;
           let object = self.new_function(func)?;
           build.push(object);
         }
-        'c' => {
-          let func = Function::Copy;
-          let object = self.new_function(func)?;
-          build.push(object);
-        }
         'd' => {
-          let func = Function::Drop;
+          let func = Function::Compose;
           let object = self.new_function(func)?;
           build.push(object);
         }
         'f' => {
+          let func = Function::Copy;
+          let object = self.new_function(func)?;
+          build.push(object);
+        }
+        'g' => {
+          let func = Function::Drop;
+          let object = self.new_function(func)?;
+          build.push(object);
+        }
+        'h' => {
+          let func = Function::Swap;
+          let object = self.new_function(func)?;
+          build.push(object);
+        }
+        'j' => {
           let func = Function::Fix;
           let object = self.new_function(func)?;
           build.push(object);
         }
-        's' => {
+        'k' => {
           let func = Function::Shift;
-          let object = self.new_function(func)?;
-          build.push(object);
-        }
-        'r' => {
-          let func = Function::Reset;
           let object = self.new_function(func)?;
           build.push(object);
         }
@@ -497,25 +562,28 @@ impl Heap {
       &Object::Function(ref value) => {
         match value {
           Function::Apply => {
-            buf.push('a');
-          }
-          Function::Bind => {
             buf.push('b');
           }
-          Function::Copy => {
+          Function::Bind => {
             buf.push('c');
           }
-          Function::Drop => {
+          Function::Compose => {
             buf.push('d');
           }
-          Function::Fix => {
+          Function::Copy => {
             buf.push('f');
           }
-          Function::Shift => {
-            buf.push('s');
+          Function::Drop => {
+            buf.push('g');
           }
-          Function::Reset => {
-            buf.push('r');
+          Function::Swap => {
+            buf.push('h');
+          }
+          Function::Fix => {
+            buf.push('j');
+          }
+          Function::Shift => {
+            buf.push('k');
           }
         }
       }
@@ -530,6 +598,11 @@ impl Heap {
         buf.push('[');
         self.quote(body, buf)?;
         buf.push(']');
+      }
+      &Object::Arrow(body) => {
+        buf.push('{');
+        self.quote(body, buf)?;
+        buf.push('}');
       }
       &Object::Sequence(head, tail) => {
         self.quote(head, buf)?;
@@ -592,10 +665,10 @@ impl Heap {
     }
   }
 
-  fn get_function_ref(&self, pointer: Pointer) -> Result<&Function> {
+  pub fn get_function(&self, pointer: Pointer) -> Result<Function> {
     match self.get_ref(pointer)? {
       &Object::Function(ref value) => {
-        return Ok(value);
+        return Ok(*value);
       }
       _ => {
         return Err(Error::Tag);

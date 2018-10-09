@@ -17,157 +17,239 @@
 
 use super::*;
 
-// Get the next function to be executed.
-fn fetch(
-  code: &mut Vec<heap::Pointer>,
-  heap: &mut heap::Heap) -> Result<heap::Pointer> {
-  loop {
-    let object = code.pop().ok_or(Error::Bug)?;
-    if heap.is_sequence(object)? {
-      let head = heap.get_sequence_head(object)?;
-      let tail = heap.get_sequence_tail(object)?;
-      code.push(tail);
-      code.push(head);
-    } else {
-      return Ok(object);
+#[derive(Debug, Clone)]
+struct Frame {
+  con: Vec<heap::Pointer>,
+  env: Vec<heap::Pointer>,
+  err: Vec<heap::Pointer>,
+}
+
+impl Frame {
+  fn new(root: heap::Pointer) -> Self {
+    Frame {
+      con: vec![root],
+      env: vec![],
+      err: vec![],
     }
   }
 }
 
-// Return all of the code up to the next reset.
-fn jump(
-  code: &mut Vec<heap::Pointer>,
-  heap: &mut heap::Heap) -> Result<heap::Pointer> {
-  let mut buf = Vec::new();
-  loop {
-    let object = fetch(code, heap)?;
-    if heap.is_reset(object)? {
-      code.push(object);
-      let mut xs = heap.new_id()?;
-      for object in buf.iter().rev() {
-        xs = heap.new_sequence(*object, xs)?;
-      }
-      return heap.new_block(xs);
-    } else {
-      buf.push(object);
+pub struct Thread {
+  frame: Frame,
+  stack: Vec<Frame>,
+  heap: heap::Heap,
+}
+
+impl Thread {
+  pub fn with_continuation(
+    root: heap::Pointer,
+    heap: heap::Heap) -> Self {
+    Thread {
+      frame: Frame::new(root),
+      stack: Vec::new(),
+      heap: heap,
     }
   }
-}
 
-// The current instruction and everything on the stack become dead code.
-fn freeze(
-  code: heap::Pointer,
-  data: &mut Vec<heap::Pointer>,
-  kill: &mut Vec<heap::Pointer>) {
-  kill.append(data);
-  kill.push(code);
-}
+  pub fn has_continuation(&self) -> bool {
+    return !self.frame.con.is_empty() || !self.stack.is_empty();
+  }
 
-/// Rewrite a term until it either reaches normal form or time runs
-/// out.
-pub fn reduce(
-  root: heap::Pointer,
-  heap: &mut heap::Heap,
-  mut time: usize) -> Result<heap::Pointer> {
-  let mut code = vec![root];
-  let mut data = vec![];
-  let mut kill = vec![];
-  // The "kill" trick has some problems: if dead code later expands to
-  // something containing a shift, then the meaning of the code
-  // changes. I *think* it's okay if we only remove resets when
-  // there's no dead code, but I'll need to test it more.
-  while time > 0 && !code.is_empty() {
-    time -= 1;
-    let object = fetch(&mut code, heap)?;
-    if heap.is_number(object)? {
-      data.push(object);
-    } else if heap.is_block(object)? {
-      data.push(object);
-    } else if heap.is_apply(object)? {
-      // [A][B]a = B[A]
-      if data.len() < 2 {
-        freeze(object, &mut data, &mut kill);
-        continue;
+  pub fn get_continuation(&mut self) -> Result<heap::Pointer> {
+    let mut xs = self.heap.new_id()?;
+    for object in self.frame.con.iter() {
+      xs = self.heap.new_sequence(*object, xs)?;
+    }
+    self.frame.con.clear();
+    return Ok(xs);
+  }
+
+  pub fn push_continuation(&mut self, data: heap::Pointer) {
+    self.frame.con.push(data);
+  }
+
+  pub fn pop_continuation(&mut self) -> Result<heap::Pointer> {
+    loop {
+      if self.frame.con.is_empty() {
+        if self.stack.is_empty() {
+          return Err(Error::Underflow);
+        }
+        let mut previous = self.stack.pop().ok_or(Error::Bug)?;
+        if self.frame.err.is_empty() {
+          previous.env.append(&mut self.frame.env);
+          self.frame = previous;
+        } else {
+          let arrow_body = self.get_environment()?;
+          let arrow = self.heap.new_arrow(arrow_body)?;
+          self.frame = previous;
+          self.crash(arrow);
+        }
       }
-      let func = data.pop().ok_or(Error::Underflow)?;
-      let hide = data.pop().ok_or(Error::Underflow)?;
-      assert(heap.is_block(func))?;
-      let func_body = heap.get_block_body(func)?;
-      code.push(hide);
-      code.push(func_body);
-    } else if heap.is_bind(object)? {
-      // [A][B]b = [[A]B]
-      if data.len() < 2 {
-        freeze(object, &mut data, &mut kill);
-        continue;
+      let code = self.frame.con.pop().ok_or(Error::Bug)?;
+      if self.heap.is_sequence(code)? {
+        let head = self.heap.get_sequence_head(code)?;
+        let tail = self.heap.get_sequence_tail(code)?;
+        self.frame.con.push(tail);
+        self.frame.con.push(head);
+      } else {
+        return Ok(code);
       }
-      let func = data.pop().ok_or(Error::Underflow)?;
-      let show = data.pop().ok_or(Error::Underflow)?;
-      assert(heap.is_block(func))?;
-      let func_body = heap.get_block_body(func)?;
-      let sequence = heap.new_sequence(show, func_body)?;
-      let block = heap.new_block(sequence)?;
-      data.push(block);
-    } else if heap.is_copy(object)? {
-      // [A]c = [A] [A]
-      if data.is_empty() {
-        freeze(object, &mut data, &mut kill);
-        continue;
+    }
+  }
+
+  pub fn is_monadic(&self) -> bool {
+    return self.frame.env.len() >= 1;
+  }
+
+  pub fn is_dyadic(&self) -> bool {
+    return self.frame.env.len() >= 2;
+  }
+
+  pub fn get_environment(&mut self) -> Result<heap::Pointer> {
+    let mut xs = self.heap.new_id()?;
+    for object in self.frame.env.iter().rev() {
+      xs = self.heap.new_sequence(*object, xs)?;
+    }
+    for object in self.frame.err.iter().rev() {
+      xs = self.heap.new_sequence(*object, xs)?;
+    }
+    self.frame.env.clear();
+    self.frame.err.clear();
+    return Ok(xs);
+  }
+
+  pub fn push_environment(&mut self, data: heap::Pointer) {
+    self.frame.env.push(data);
+  }
+
+  pub fn pop_environment(&mut self) -> Result<heap::Pointer> {
+    return self.frame.env.pop().ok_or(Error::Underflow);
+  }
+
+  pub fn peek_environment(&mut self) -> Result<heap::Pointer> {
+    return self.frame.env.last().map(|x| *x).ok_or(Error::Underflow);
+  }
+
+  pub fn push_frame(&mut self, root: heap::Pointer) {
+    self.stack.push(self.frame.clone());
+    self.frame = Frame::new(root);
+  }
+
+  pub fn crash(&mut self, root: heap::Pointer) {
+    self.frame.err.append(&mut self.frame.env);
+    self.frame.err.push(root);
+  }
+
+  pub fn step(&mut self) -> Result<()> {
+    let code = self.pop_continuation()?;
+    if self.heap.is_arrow(code)? {
+      let body = self.heap.get_arrow_body(code)?;
+      self.push_frame(body);
+    } else if self.heap.is_block(code)? {
+      self.push_environment(code);
+    } else if self.heap.is_number(code)? {
+      self.push_environment(code);
+    } else if self.heap.is_function(code)? {
+      match self.heap.get_function(code)? {
+        Function::Apply => {
+          if !self.is_monadic() {
+            self.crash(code);
+            return Ok(());
+          }
+          let source = self.pop_environment()?;
+          let target = self.heap.get_block_body(source)?;
+          self.push_continuation(target);
+        }
+        Function::Bind => {
+          if !self.is_monadic() {
+            self.crash(code);
+            return Ok(());
+          }
+          let source = self.pop_environment()?;
+          let target = self.heap.new_block(source)?;
+          self.push_environment(target);
+        }
+        Function::Compose => {
+          if !self.is_dyadic() {
+            self.crash(code);
+            return Ok(());
+          }
+          let rhs = self.pop_environment()?;
+          let lhs = self.pop_environment()?;
+          let rhs_body = self.heap.get_block_body(rhs)?;
+          let lhs_body = self.heap.get_block_body(lhs)?;
+          let target_body = self.heap.new_sequence(lhs_body, rhs_body)?;
+          let target = self.heap.new_block(target_body)?;
+          self.push_environment(target);
+        }
+        Function::Copy => {
+          if !self.is_monadic() {
+            self.crash(code);
+            return Ok(());
+          }
+          let source = self.peek_environment()?;
+          self.push_environment(source);
+        }
+        Function::Drop => {
+          if !self.is_monadic() {
+            self.crash(code);
+            return Ok(());
+          }
+          self.pop_environment()?;
+        }
+        Function::Swap => {
+          if !self.is_dyadic() {
+            self.crash(code);
+            return Ok(());
+          }
+          let fst = self.pop_environment()?;
+          let snd = self.pop_environment()?;
+          self.push_environment(fst);
+          self.push_environment(snd);
+        }
+        Function::Fix => {
+          if !self.is_monadic() {
+            self.crash(code);
+            return Ok(());
+          }
+          let source = self.pop_environment()?;
+          let source_body = self.heap.get_block_body(source)?;
+          let fixed = self.heap.new_sequence(source, code)?;
+          let target_body = self.heap.new_sequence(fixed, source_body)?;
+          let target = self.heap.new_block(target_body)?;
+          self.push_environment(target);
+        }
+        Function::Shift => {
+          if !self.is_monadic() || self.stack.is_empty() {
+            self.crash(code);
+            return Ok(());
+          }
+          let callback = self.pop_environment()?;
+          let callback_body = self.heap.get_block_body(callback)?;
+          let env_body = self.get_environment()?;
+          let con_body = self.get_continuation()?;
+          let environment = self.heap.new_block(env_body)?;
+          let continuation = self.heap.new_block(con_body)?;
+          self.push_environment(environment);
+          self.push_environment(continuation);
+          self.push_continuation(callback_body);
+        }
       }
-      let copy = data.last().ok_or(Error::Underflow)?;
-      data.push(*copy);
-    } else if heap.is_drop(object)? {
-      // [A] d =
-      if data.is_empty() {
-        freeze(object, &mut data, &mut kill);
-        continue;
-      }
-      data.pop().ok_or(Error::Underflow)?;
-    } else if heap.is_fix(object)? {
-      // [A]f = [[A]fA]
-      if data.is_empty() {
-        freeze(object, &mut data, &mut kill);
-        continue;
-      }
-      let block = data.pop().ok_or(Error::Underflow)?;
-      let block_body = heap.get_block_body(block)?;
-      let lhs = heap.new_sequence(block, object)?;
-      let rhs = heap.new_sequence(lhs, block_body)?;
-      let fix = heap.new_block(rhs)?;
-      data.push(fix);
-    } else if heap.is_shift(object)? {
-      // [A]sBr = [B]Ar
-      // Is this correct? Should we crash instead?
-      if data.is_empty() {
-        freeze(object, &mut data, &mut kill);
-        continue;
-      }
-      let callback = data.pop().ok_or(Error::Underflow)?;
-      let callback_body = heap.get_block_body(callback)?;
-      let continuation = jump(&mut code, heap)?;
-      code.push(callback_body);
-      data.push(continuation);
-    } else if heap.is_reset(object)? {
-      // r =
-      // If there's dead code, we can't delete stuff.
-      if !kill.is_empty() {
-        freeze(object, &mut data, &mut kill);
-      }
-    } else if heap.is_id(object)? {
+    } else if self.heap.is_word(code)? {
+      self.crash(code);
+    } else if self.heap.is_id(code)? {
       //
     } else {
-      freeze(object, &mut data, &mut kill);
+      return Err(Error::Bug);
     }
+    return Ok(());
   }
-  let mut xs = heap.new_id()?;
-  for object in code.iter() {
-    xs = heap.new_sequence(*object, xs)?;
+
+  pub fn dump(mut self, dst: &mut String) -> Result<()> {
+    let env = self.get_environment()?;
+    let con = self.get_continuation()?;
+    self.heap.quote(env, dst)?;
+    self.heap.quote(con, dst)?;
+    return Ok(());
   }
-  for object in data.iter().rev() {
-    xs = heap.new_sequence(*object, xs)?;
-  }
-  for object in kill.iter().rev() {
-    xs = heap.new_sequence(*object, xs)?;
-  }
-  return Ok(xs);
 }
