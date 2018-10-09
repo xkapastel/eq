@@ -64,64 +64,6 @@ impl Pointer {
   }
 }
 
-impl Function {
-  fn is_apply(&self) -> bool {
-    match self {
-      Function::Apply => true,
-      _ => false,
-    }
-  }
-
-  fn is_bind(&self) -> bool {
-    match self {
-      Function::Bind => true,
-      _ => false,
-    }
-  }
-
-  fn is_compose(&self) -> bool {
-    match self {
-      Function::Compose => true,
-      _ => false,
-    }
-  }
-
-  fn is_copy(&self) -> bool {
-    match self {
-      Function::Copy => true,
-      _ => false,
-    }
-  }
-
-  fn is_drop(&self) -> bool {
-    match self {
-      Function::Drop => true,
-      _ => false,
-    }
-  }
-
-  fn is_swap(&self) -> bool {
-    match self {
-      Function::Swap => true,
-      _ => false,
-    }
-  }
-
-  fn is_fix(&self) -> bool {
-    match self {
-      Function::Fix => true,
-      _ => false,
-    }
-  }
-
-  fn is_shift(&self) -> bool {
-    match self {
-      Function::Shift => true,
-      _ => false,
-    }
-  }
-}
-
 impl Object {
   fn is_id(&self) -> bool {
     match self {
@@ -264,70 +206,6 @@ impl Heap {
     return Ok(object.is_word());
   }
 
-  pub fn is_apply(&self, pointer: Pointer) -> Result<bool> {
-    if !self.is_function(pointer)? {
-      return Ok(false);
-    }
-    let object = self.get_function(pointer)?;
-    return Ok(object.is_apply());
-  }
-
-  pub fn is_bind(&self, pointer: Pointer) -> Result<bool> {
-    if !self.is_function(pointer)? {
-      return Ok(false);
-    }
-    let object = self.get_function(pointer)?;
-    return Ok(object.is_bind());
-  }
-
-  pub fn is_compose(&self, pointer: Pointer) -> Result<bool> {
-    if !self.is_function(pointer)? {
-      return Ok(false);
-    }
-    let object = self.get_function(pointer)?;
-    return Ok(object.is_compose());
-  }
-
-  pub fn is_copy(&self, pointer: Pointer) -> Result<bool> {
-    if !self.is_function(pointer)? {
-      return Ok(false);
-    }
-    let object = self.get_function(pointer)?;
-    return Ok(object.is_copy());
-  }
-
-  pub fn is_drop(&self, pointer: Pointer) -> Result<bool> {
-    if !self.is_function(pointer)? {
-      return Ok(false);
-    }
-    let object = self.get_function(pointer)?;
-    return Ok(object.is_drop());
-  }
-
-  pub fn is_swap(&self, pointer: Pointer) -> Result<bool> {
-    if !self.is_function(pointer)? {
-      return Ok(false);
-    }
-    let object = self.get_function(pointer)?;
-    return Ok(object.is_swap());
-  }
-
-  pub fn is_fix(&self, pointer: Pointer) -> Result<bool> {
-    if !self.is_function(pointer)? {
-      return Ok(false);
-    }
-    let object = self.get_function(pointer)?;
-    return Ok(object.is_fix());
-  }
-
-  pub fn is_shift(&self, pointer: Pointer) -> Result<bool> {
-    if !self.is_function(pointer)? {
-      return Ok(false);
-    }
-    let object = self.get_function(pointer)?;
-    return Ok(object.is_shift());
-  }
-
   /// Predicates blocks.
   pub fn is_block(&self, pointer: Pointer) -> Result<bool> {
     let object = self.get_ref(pointer)?;
@@ -427,6 +305,7 @@ impl Heap {
   /// Deletes all objects unreachable from the given root.
   pub fn flush(&mut self, root: Pointer) -> Result<()> {
     self.visit(root)?;
+    let mut nodes_deleted = 0;
     for maybe_node in self.nodes.iter_mut() {
       let should_delete_node;
       if let Some(ref mut node) = maybe_node {
@@ -441,9 +320,12 @@ impl Heap {
       }
       if should_delete_node {
         *maybe_node = None;
+        nodes_deleted += 1;
       }
     }
     self.generation += 1;
+    println!(
+      "[flush] deleted: {} generation: {}", nodes_deleted, self.generation);
     return Ok(());
   }
 
