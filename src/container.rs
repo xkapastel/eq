@@ -27,7 +27,7 @@ pub struct Container {
 const word_pattern: &'static str = r"[a-z+\-*/<>!?=]+";
 
 impl Container {
-  pub fn with_heap(heap: heap::Heap) -> Self {
+  fn with_heap(heap: heap::Heap) -> Self {
     let src = format!(r"^:({})\s+(.*)", word_pattern);
     let insert_pattern = regex::Regex::new(&src).expect("insert");
     let src = format!(r"^~({})\s*", word_pattern);
@@ -38,6 +38,20 @@ impl Container {
       insert_pattern: insert_pattern,
       delete_pattern: delete_pattern,
     }
+  }
+
+  pub fn from_image(
+    path: &str,
+    space_quota: usize,
+    time_quota: u64) -> Result<Self> {
+    let contents = std::fs::read_to_string(path).or(Err(Error::Bug))?;
+    let code = feed::extract_code_blocks(&contents);
+    let heap = heap::Heap::with_capacity(space_quota);
+    let mut container = Container::with_heap(heap);
+    for line in code.lines() {
+      container.eval(line, time_quota)?;
+    }
+    return Ok(container);
   }
 
   pub fn eval(&mut self, src: &str, time_quota: u64) -> Result<String> {

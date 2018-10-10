@@ -16,7 +16,6 @@
 // <https://www.gnu.org/licenses/.
 
 extern crate eq;
-extern crate regex;
 
 use std::rc::Rc;
 use std::io::Write;
@@ -27,14 +26,9 @@ fn main() {
   let mut target_buffer = String::new();
   let space_quota       = 1024;
   let time_quota        = 1024;
-  let mut heap          = eq::heap::Heap::with_capacity(space_quota);
-  let mut container     = eq::container::Container::with_heap(heap);
   let container_path    = std::env::var("EQ_CONTAINER").expect("boot");
-  let container_code    = std::fs::read_to_string(container_path).expect("boot");
-  for line in container_code.lines() {
-    let output = container.eval(line, time_quota).expect("boot");
-    println!("{}", &output);
-  }
+  let mut container     = eq::container::Container::from_image(
+    &container_path, space_quota, time_quota).expect("container");
   loop {
     print!("user@eq\nλ ");
     std::io::stdout().flush().unwrap();

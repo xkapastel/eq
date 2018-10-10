@@ -15,6 +15,10 @@
 // License along with this program.  If not, see
 // <https://www.gnu.org/licenses/.
 
+extern crate regex;
+extern crate comrak;
+extern crate atom_syndication;
+
 /// An error that might occur during computation.
 #[derive(Debug, Copy, Clone)]
 pub enum Error {
@@ -78,6 +82,9 @@ pub fn assert(flag: Result<bool>) -> Result<()> {
 pub mod heap;
 pub mod reduce;
 pub mod container;
+pub mod feed;
+
+pub use self::container::Container;
 
 use std::rc::Rc;
 use std::collections::HashMap;

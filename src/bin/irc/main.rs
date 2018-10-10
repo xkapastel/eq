@@ -6,14 +6,10 @@ use irc::client::Client;
 use irc::client::ext::ClientExt;
 
 fn irc_config() -> mirc::Config {
-  let server = std::env::var(
-    "EQ_IRC_SERVER").expect("server").to_owned();
-  let nickname = std::env::var(
-    "EQ_IRC_NICKNAME").expect("nickname").to_owned();
-  let password = std::env::var(
-    "EQ_IRC_PASSWORD").expect("password").to_owned();
-  let channel = std::env::var(
-    "EQ_IRC_CHANNEL").expect("channel").to_owned();
+  let server = std::env::var("EQ_IRC_SERVER").unwrap().to_owned();
+  let nickname = std::env::var("EQ_IRC_NICKNAME").unwrap().to_owned();
+  let password = std::env::var("EQ_IRC_PASSWORD").unwrap().to_owned();
+  let channel = std::env::var("EQ_IRC_CHANNEL").unwrap().to_owned();
   mirc::Config {
     nickname: Some(nickname.clone()),
     password: Some(password.clone()),
@@ -24,12 +20,15 @@ fn irc_config() -> mirc::Config {
 }
 
 fn main() {
-  let mut heap = eq::heap::Heap::with_capacity(4096);
-  let mut container = eq::container::Container::with_heap(heap);
-  let mut reactor = mirc::IrcReactor::new().expect("reactor");
+  let space_quota = 4096;
+  let time_quota = 4096;
+  let image_path = std::env::var("EQ_CONTAINER").unwrap();
+  let mut container = eq::Container::from_image(
+    &image_path, space_quota, time_quota).unwrap();
+  let mut reactor = mirc::IrcReactor::new().unwrap();
   let config = irc_config();
-  let client = reactor.prepare_client_and_connect(&config).expect("connect");
-  client.identify().expect("identify");
+  let client = reactor.prepare_client_and_connect(&config).unwrap();
+  client.identify().unwrap();
   let command_prefix = format!("{}: ", &config.nickname.unwrap());
   reactor.register_client_with_handler(client, move |client, message| {
     print!("{}", message);
