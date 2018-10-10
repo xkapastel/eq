@@ -43,6 +43,7 @@ pub enum Function {
   Drop,
   Swap,
   Fix,
+  Run,
   Shift,
   Min,
   Max,

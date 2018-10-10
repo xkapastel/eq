@@ -254,6 +254,16 @@ impl Thread {
           let target = heap.new_block(target_body)?;
           self.push_environment(target);
         }
+        Function::Run => {
+          if !self.is_monadic() {
+            self.thunk(code);
+            return Ok(());
+          }
+          let source = self.pop_environment()?;
+          let source_body = heap.get_block_body(source)?;
+          let target = heap.new_arrow(source_body)?;
+          self.push_continuation_front(target);
+        }
         Function::Shift => {
           if !self.is_monadic() || self.stack.is_empty() {
             self.thunk(code);

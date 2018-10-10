@@ -439,6 +439,11 @@ impl Heap {
           let object = self.new_function(func)?;
           build.push(object);
         }
+        "run" => {
+          let func = Function::Run;
+          let object = self.new_function(func)?;
+          build.push(object);
+        }
         "shift" => {
           let func = Function::Shift;
           let object = self.new_function(func)?;
@@ -560,6 +565,9 @@ impl Heap {
           }
           Function::Fix => {
             buf.push_str("fix");
+          }
+          Function::Run => {
+            buf.push_str("run");
           }
           Function::Shift => {
             buf.push_str("shift");

@@ -11,5 +11,6 @@ Eq bytecode is a [[http://tunes.org/~iepos/joy.html][concatenative language.]]
          [A] drop =
      [A] [B] swap = [B] [A]
          [A] fix  = [[A] fix A]
+         [A] run  = { A }
 { E [F] shift K } = { [E] [K] F }
 #+END_SRC

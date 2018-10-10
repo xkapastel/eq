@@ -36,7 +36,12 @@ fn main() {
     target_buffer.clear();
     std::io::stdin().read_line(
       &mut source_buffer).expect("stdin");
-    let target = container.eval(&source_buffer, time_quota).expect("eval");
-    println!("=> {}", &target);
+    if source_buffer.starts_with(".dump") {
+      let dump = container.to_string().expect("dump");
+      print!("{}", dump);
+    } else {
+      let target = container.eval(&source_buffer, time_quota).expect("eval");
+      println!("=> {}", &target);
+    }
   }
 }

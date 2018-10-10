@@ -24,14 +24,14 @@ pub struct Container {
   delete_pattern: regex::Regex,
 }
 
+const word_pattern: &'static str = r"[a-z+\-*/<>!?=]";
+
 impl Container {
   pub fn with_heap(heap: heap::Heap) -> Self {
-    let insert_pattern = regex::Regex::new(
-      r"^:([a-z+\-*/<>!?][a-z0-9+\-*/<>!?]*)\s+(.*)")
-      .expect("insert_pattern");
-    let delete_pattern = regex::Regex::new(
-      r"^~([a-z+\-*/<>!?][a-z0-9+\-*/<>!?]*)\s*")
-      .expect("delete_pattern");
+    let src = format!(r"^:({})\s+(.*)", word_pattern);
+    let insert_pattern = regex::Regex::new(&src).expect("insert");
+    let src = format!(r"^~({})\s*", word_pattern);
+    let delete_pattern = regex::Regex::new(&src).expect("delete");
     Container {
       heap: heap,
       dictionary: HashMap::new(),
@@ -69,5 +69,17 @@ impl Container {
     }
     self.heap.sweep()?;
     return Ok(dst);
+  }
+
+  pub fn to_string(&self) -> Result<String> {
+    let mut target = String::new();
+    for (key, value) in self.dictionary.iter() {
+      target.push(':');
+      target.push_str(&key);
+      target.push(' ');
+      self.heap.quote(*value, &mut target);
+      target.push('\n');
+    }
+    return Ok(target);
   }
 }
