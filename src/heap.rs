@@ -417,9 +417,67 @@ impl Heap {
           let object = self.new_function(func)?;
           build.push(object);
         }
-        _ => {
-          let object = self.new_word(word.into())?;
+        "min" => {
+          let func = Function::Min;
+          let object = self.new_function(func)?;
           build.push(object);
+        }
+        "max" => {
+          let func = Function::Max;
+          let object = self.new_function(func)?;
+          build.push(object);
+        }
+        "+" => {
+          let func = Function::Add;
+          let object = self.new_function(func)?;
+          build.push(object);
+        }
+        "-" => {
+          let func = Function::Negate;
+          let object = self.new_function(func)?;
+          build.push(object);
+        }
+        "*" => {
+          let func = Function::Multiply;
+          let object = self.new_function(func)?;
+          build.push(object);
+        }
+        "/" => {
+          let func = Function::Invert;
+          let object = self.new_function(func)?;
+          build.push(object);
+        }
+        "exp" => {
+          let func = Function::Exp;
+          let object = self.new_function(func)?;
+          build.push(object);
+        }
+        "log" => {
+          let func = Function::Log;
+          let object = self.new_function(func)?;
+          build.push(object);
+        }
+        "cos" => {
+          let func = Function::Cos;
+          let object = self.new_function(func)?;
+          build.push(object);
+        }
+        "sin" => {
+          let func = Function::Sin;
+          let object = self.new_function(func)?;
+          build.push(object);
+        }
+        _ => {
+          match word.parse::<Number>() {
+            Ok(value) => {
+              let object = self.new_number(value)?;
+              build.push(object);
+            }
+            Err(error) => {
+              let object = self.new_word(word.into())?;
+              build.push(object);
+            }
+          }
         }
       }
     }
@@ -463,6 +521,36 @@ impl Heap {
           }
           Function::Shift => {
             buf.push_str("shift");
+          }
+          Function::Min => {
+            buf.push_str("min");
+          }
+          Function::Max => {
+            buf.push_str("max");
+          }
+          Function::Add => {
+            buf.push('+');
+          }
+          Function::Negate => {
+            buf.push('-');
+          }
+          Function::Multiply => {
+            buf.push('*');
+          }
+          Function::Invert => {
+            buf.push('/');
+          }
+          Function::Exp => {
+            buf.push_str("exp");
+          }
+          Function::Log => {
+            buf.push_str("log");
+          }
+          Function::Cos => {
+            buf.push_str("cos");
+          }
+          Function::Sin => {
+            buf.push_str("sin");
           }
         }
       }

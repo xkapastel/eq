@@ -16,14 +16,19 @@
 // <https://www.gnu.org/licenses/.
 
 extern crate eq;
+extern crate regex;
 
+use std::rc::Rc;
 use std::io::Write;
+use std::collections::HashMap;
 
 fn main() {
   let mut source_buffer = String::new();
   let mut target_buffer = String::new();
-  let space_quota = 1024;
-  let time_quota = 1024;
+  let space_quota       = 1024;
+  let time_quota        = 1024;
+  let mut heap          = eq::heap::Heap::with_capacity(space_quota);
+  let mut container     = eq::container::Container::with_heap(heap);
   loop {
     print!("user@eq\nλ ");
     std::io::stdout().flush().unwrap();
@@ -31,11 +36,7 @@ fn main() {
     target_buffer.clear();
     std::io::stdin().read_line(
       &mut source_buffer).expect("stdin");
-    eq::eval(
-      &source_buffer,
-      &mut target_buffer,
-      space_quota,
-      time_quota).expect("eval");
-    println!("=> {}", &target_buffer);
+    let target = container.eval(&source_buffer, time_quota).expect("eval");
+    println!("=> {}", &target);
   }
 }

@@ -44,6 +44,16 @@ pub enum Function {
   Swap,
   Fix,
   Shift,
+  Min,
+  Max,
+  Add,
+  Negate,
+  Multiply,
+  Invert,
+  Exp,
+  Log,
+  Cos,
+  Sin,
 }
 
 /// Halt the computation is the given condition is false.
@@ -63,20 +73,9 @@ pub fn assert(flag: Result<bool>) -> Result<()> {
 
 pub mod heap;
 pub mod reduce;
+pub mod container;
 
-/// Rewrite a string of code, until it either reaches a normal form or
-/// the time quota is exhausted.
-pub fn eval(
-  source: &str,
-  target: &mut String,
-  space_quota: usize,
-  mut time_quota: usize) -> Result<()> {
-  let mut heap = heap::Heap::with_capacity(space_quota);
-  let continuation = heap.parse(source)?;
-  let mut thread = reduce::Thread::with_continuation(continuation, heap);
-  while time_quota > 0 && thread.has_continuation() {
-    time_quota -= 1;
-    thread.step()?;
-  }
-  return thread.dump(target);
-}
+use std::rc::Rc;
+use std::collections::HashMap;
+
+pub type Dictionary = HashMap<Rc<str>, heap::Pointer>;
