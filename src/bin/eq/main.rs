@@ -29,13 +29,18 @@ fn main() {
   let time_quota        = 1024;
   let mut heap          = eq::heap::Heap::with_capacity(space_quota);
   let mut container     = eq::container::Container::with_heap(heap);
+  let container_path    = std::env::var("EQ_CONTAINER").expect("boot");
+  let container_code    = std::fs::read_to_string(container_path).expect("boot");
+  for line in container_code.lines() {
+    let output = container.eval(line, time_quota).expect("boot");
+    println!("{}", &output);
+  }
   loop {
     print!("user@eq\nλ ");
     std::io::stdout().flush().unwrap();
     source_buffer.clear();
     target_buffer.clear();
-    std::io::stdin().read_line(
-      &mut source_buffer).expect("stdin");
+    std::io::stdin().read_line(&mut source_buffer).expect("stdin");
     if source_buffer.starts_with(".dump") {
       let dump = container.to_string().expect("dump");
       print!("{}", dump);

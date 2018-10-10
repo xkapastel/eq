@@ -352,7 +352,7 @@ impl Heap {
     }
     self.generation += 1;
     println!(
-      "[flush] deleted: {} generation: {}", nodes_deleted, self.generation);
+      "[gc] deleted: {} generation: {}", nodes_deleted, self.generation);
     return Ok(());
   }
 

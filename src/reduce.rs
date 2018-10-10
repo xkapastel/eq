@@ -444,7 +444,6 @@ impl Thread {
         }
         None => {
           self.thunk(code);
-          return Ok(());
         }
       }
       return Ok(());

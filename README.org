@@ -14,3 +14,16 @@ Eq bytecode is a [[http://tunes.org/~iepos/joy.html][concatenative language.]]
          [A] run  = { A }
 { E [F] shift K } = { [E] [K] F }
 #+END_SRC
+
+* Feeds
+Eq dictionaries are published as [[https://en.wikipedia.org/wiki/Atom_(Web_standard)][Atom feeds]]. The content of each post
+in the feed is Markdown; the code blocks inside contain transactions
+of the form:
+
+#+BEGIN_SRC
+:key value    Assign `value` to `key`.
+~key          Delete `key`.
+#+END_SRC
+
+The dictionary is reconstructed by executing feed items in
+chronological order.

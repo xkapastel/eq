@@ -7,3 +7,5 @@ edition = "2018"
 [dependencies]
 irc = "0.13"
 regex = "1.0"
+comrak = "0.3"
+atom_syndication = "0.6"

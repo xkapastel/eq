@@ -24,7 +24,7 @@ pub struct Container {
   delete_pattern: regex::Regex,
 }
 
-const word_pattern: &'static str = r"[a-z+\-*/<>!?=]";
+const word_pattern: &'static str = r"[a-z+\-*/<>!?=]+";
 
 impl Container {
   pub fn with_heap(heap: heap::Heap) -> Self {
@@ -39,7 +39,7 @@ impl Container {
       delete_pattern: delete_pattern,
     }
   }
-  
+
   pub fn eval(&mut self, src: &str, time_quota: u64) -> Result<String> {
     let mut dst = String::new();
     if let Some(data) = self.insert_pattern.captures(src) {
@@ -73,7 +73,11 @@ impl Container {
 
   pub fn to_string(&self) -> Result<String> {
     let mut target = String::new();
-    for (key, value) in self.dictionary.iter() {
+    let mut keys: Vec<Rc<str>> = self.dictionary.keys()
+      .map(|x| x.clone()).collect();
+    keys.sort();
+    for key in keys.iter() {
+      let value = self.dictionary.get(key).unwrap();
       target.push(':');
       target.push_str(&key);
       target.push(' ');

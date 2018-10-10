@@ -1,0 +1,19 @@
+:miss swap box cat app
+:bind swap box swap cat
+:unit []
+:pair box swap box swap cat
+:fst app drop
+:snd app swap drop
+:car fst
+:cdr snd
+:caar car car
+:cddr cdr cdr
+:cadr cdr car
+:cdar car cdr
+:bca box swap box swap cat miss
+:case bca app
+:inl box [swap drop swap app] cat
+:inr box [bca drop swap app] cat
+:m+ [app +] [drop 0] case
+:m* [app *] [drop 1] case
+:null drop unit inr swap app
