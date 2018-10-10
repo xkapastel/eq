@@ -186,7 +186,7 @@ impl Thread {
       self.push_environment(code);
     } else if heap.is_function(code)? {
       match heap.get_function(code)? {
-        Function::Apply => {
+        Function::App => {
           if !self.is_monadic() {
             self.thunk(code);
             return Ok(());
@@ -195,7 +195,7 @@ impl Thread {
           let target = heap.get_block_body(source)?;
           self.push_continuation_front(target);
         }
-        Function::Bind => {
+        Function::Box => {
           if !self.is_monadic() {
             self.thunk(code);
             return Ok(());
@@ -204,7 +204,7 @@ impl Thread {
           let target = heap.new_block(source)?;
           self.push_environment(target);
         }
-        Function::Compose => {
+        Function::Cat => {
           if !self.is_dyadic() {
             self.thunk(code);
             return Ok(());

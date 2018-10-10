@@ -36,9 +36,9 @@ pub type Number = f64;
 
 #[derive(Debug, Copy, Clone)]
 pub enum Function {
-  Apply,
-  Bind,
-  Compose,
+  App,
+  Box,
+  Cat,
   Copy,
   Drop,
   Swap,

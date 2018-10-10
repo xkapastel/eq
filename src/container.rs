@@ -64,6 +64,10 @@ impl Container {
         source, &mut self.heap, &self.dictionary, time_quota)?;
       self.heap.quote(target, &mut dst)?;
     }
+    for pointer in self.dictionary.values() {
+      self.heap.mark(*pointer)?;
+    }
+    self.heap.sweep()?;
     return Ok(dst);
   }
 }

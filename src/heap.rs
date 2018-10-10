@@ -302,9 +302,36 @@ impl Heap {
     }
   }
 
-  /// Deletes all objects unreachable from the given root.
-  pub fn flush(&mut self, root: Pointer) -> Result<()> {
-    self.visit(root)?;
+  pub fn mark(&mut self, root: Pointer) -> Result<()> {
+    match &mut self.nodes[root.index] {
+      &mut Some(ref mut node) => {
+        if node.generation != root.generation {
+          return Err(Error::Null);
+        }
+        node.is_visible = true;
+        match &node.object {
+          &Object::Block(body) => {
+            return self.mark(body);
+          }
+          &Object::Arrow(body) => {
+            return self.mark(body);
+          }
+          &Object::Sequence(head, tail) => {
+            self.mark(head)?;
+            return self.mark(tail);
+          }
+          _ => {
+            return Ok(());
+          }
+        }
+      }
+      _ => {
+        return Err(Error::Null);
+      }
+    }
+  }
+
+  pub fn sweep(&mut self) -> Result<()> {
     let mut nodes_deleted = 0;
     for maybe_node in self.nodes.iter_mut() {
       let should_delete_node;
@@ -377,18 +404,18 @@ impl Heap {
           build = prev;
           build.push(xs);
         }
-        "apply" => {
-          let func = Function::Apply;
+        "app" => {
+          let func = Function::App;
           let object = self.new_function(func)?;
           build.push(object);
         }
-        "bind" => {
-          let func = Function::Bind;
+        "box" => {
+          let func = Function::Box;
           let object = self.new_function(func)?;
           build.push(object);
         }
-        "compose" => {
-          let func = Function::Compose;
+        "cat" => {
+          let func = Function::Cat;
           let object = self.new_function(func)?;
           build.push(object);
         }
@@ -513,14 +540,14 @@ impl Heap {
       }
       &Object::Function(ref value) => {
         match value {
-          Function::Apply => {
-            buf.push_str("apply");
+          Function::App => {
+            buf.push_str("app");
           }
-          Function::Bind => {
-            buf.push_str("bind");
+          Function::Box => {
+            buf.push_str("box");
           }
-          Function::Compose => {
-            buf.push_str("compose");
+          Function::Cat => {
+            buf.push_str("cat");
           }
           Function::Copy => {
             buf.push_str("copy");
@@ -604,32 +631,6 @@ impl Heap {
       }
     }
     return Ok(());
-  }
-
-  fn visit(&mut self, root: Pointer) -> Result<()> {
-    match &mut self.nodes[root.index] {
-      &mut Some(ref mut node) => {
-        if node.generation != root.generation {
-          return Err(Error::Null);
-        }
-        node.is_visible = true;
-        match &node.object {
-          &Object::Block(body) => {
-            return self.visit(body);
-          }
-          &Object::Sequence(head, tail) => {
-            self.visit(head)?;
-            return self.visit(tail);
-          }
-          _ => {
-            return Ok(());
-          }
-        }
-      }
-      _ => {
-        return Err(Error::Null);
-      }
-    }
   }
 
   fn put(&mut self, object: Object) -> Result<Pointer> {
