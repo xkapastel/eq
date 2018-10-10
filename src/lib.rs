@@ -54,6 +54,9 @@ pub enum Function {
   Log,
   Cos,
   Sin,
+  Abs,
+  Ceil,
+  Floor,
 }
 
 /// Halt the computation is the given condition is false.

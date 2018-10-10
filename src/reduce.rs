@@ -392,6 +392,39 @@ impl Thread {
           let target = heap.new_number(target_value)?;
           self.push_environment(target);
         }
+        Function::Abs => {
+          if !self.is_monadic() {
+            self.thunk(code);
+            return Ok(());
+          }
+          let source = self.pop_environment()?;
+          let source_value = heap.get_number(source)?;
+          let target_value = source_value.abs();
+          let target = heap.new_number(target_value)?;
+          self.push_environment(target);
+        }
+        Function::Ceil => {
+          if !self.is_monadic() {
+            self.thunk(code);
+            return Ok(());
+          }
+          let source = self.pop_environment()?;
+          let source_value = heap.get_number(source)?;
+          let target_value = source_value.ceil();
+          let target = heap.new_number(target_value)?;
+          self.push_environment(target);
+        }
+        Function::Floor => {
+          if !self.is_monadic() {
+            self.thunk(code);
+            return Ok(());
+          }
+          let source = self.pop_environment()?;
+          let source_value = heap.get_number(source)?;
+          let target_value = source_value.floor();
+          let target = heap.new_number(target_value)?;
+          self.push_environment(target);
+        }
       }
     } else if heap.is_word(code)? {
       let code_value = heap.get_word(code)?;

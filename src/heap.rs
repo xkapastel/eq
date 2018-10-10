@@ -467,6 +467,21 @@ impl Heap {
           let object = self.new_function(func)?;
           build.push(object);
         }
+        "abs" => {
+          let func = Function::Abs;
+          let object = self.new_function(func)?;
+          build.push(object);
+        }
+        "ceil" => {
+          let func = Function::Ceil;
+          let object = self.new_function(func)?;
+          build.push(object);
+        }
+        "floor" => {
+          let func = Function::Floor;
+          let object = self.new_function(func)?;
+          build.push(object);
+        }
         _ => {
           match word.parse::<Number>() {
             Ok(value) => {
@@ -551,6 +566,15 @@ impl Heap {
           }
           Function::Sin => {
             buf.push_str("sin");
+          }
+          Function::Abs => {
+            buf.push_str("abs");
+          }
+          Function::Ceil => {
+            buf.push_str("ceil");
+          }
+          Function::Floor => {
+            buf.push_str("floor");
           }
         }
       }

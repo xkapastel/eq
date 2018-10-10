@@ -27,9 +27,11 @@ pub struct Container {
 impl Container {
   pub fn with_heap(heap: heap::Heap) -> Self {
     let insert_pattern = regex::Regex::new(
-      r"^:([a-z][a-z0-9-]*)\s+(.*)").expect("insert_pattern");
+      r"^:([a-z+\-*/<>!?][a-z0-9+\-*/<>!?]*)\s+(.*)")
+      .expect("insert_pattern");
     let delete_pattern = regex::Regex::new(
-      r"^~([a-z][a-z0-9-]*)\s*").expect("delete_pattern");
+      r"^~([a-z+\-*/<>!?][a-z0-9+\-*/<>!?]*)\s*")
+      .expect("delete_pattern");
     Container {
       heap: heap,
       dictionary: HashMap::new(),
