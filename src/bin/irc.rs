@@ -1,4 +1,21 @@
-extern crate eq;
+// This file is a part of Sundial.
+// Copyright (C) 2018 Matthew Blount
+
+// This program is free software: you can redistribute it and/or modify
+// it under the terms of the GNU Affero General Public License as
+// published by the Free Software Foundation, either version 3 of the
+// License, or (at your option) any later version.
+
+// This program is distributed in the hope that it will be useful, but
+// WITHOUT ANY WARRANTY; without even the implied warranty of
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+// Affero General Public License for more details.
+
+// You should have received a copy of the GNU Affero General Public
+// License along with this program.  If not, see
+// <https://www.gnu.org/licenses/.
+
+extern crate sundial;
 extern crate irc;
 
 pub use irc::client::prelude as mirc;
@@ -6,10 +23,10 @@ use irc::client::Client;
 use irc::client::ext::ClientExt;
 
 fn irc_config() -> mirc::Config {
-  let server = std::env::var("EQ_IRC_SERVER").unwrap().to_owned();
-  let nickname = std::env::var("EQ_IRC_NICKNAME").unwrap().to_owned();
-  let password = std::env::var("EQ_IRC_PASSWORD").unwrap().to_owned();
-  let channel = std::env::var("EQ_IRC_CHANNEL").unwrap().to_owned();
+  let server = std::env::var("SUNDIAL_IRC_SERVER").unwrap().to_owned();
+  let nickname = std::env::var("SUNDIAL_IRC_NICKNAME").unwrap().to_owned();
+  let password = std::env::var("SUNDIAL_IRC_PASSWORD").unwrap().to_owned();
+  let channel = std::env::var("SUNDIAL_IRC_CHANNEL").unwrap().to_owned();
   mirc::Config {
     nickname: Some(nickname.clone()),
     password: Some(password.clone()),
@@ -22,8 +39,8 @@ fn irc_config() -> mirc::Config {
 fn main() {
   let space_quota = 4096;
   let time_quota = 4096;
-  let image_path = std::env::var("EQ_CONTAINER").unwrap();
-  let mut container = eq::Container::from_image(
+  let image_path = std::env::var("SUNDIAL_CONTAINER").unwrap();
+  let mut container = sundial::Container::from_image(
     &image_path, space_quota, time_quota).unwrap();
   let mut reactor = mirc::IrcReactor::new().unwrap();
   let config = irc_config();

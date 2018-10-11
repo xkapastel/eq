@@ -1,4 +1,4 @@
-// This file is a part of Eq.
+// This file is a part of Sundial.
 // Copyright (C) 2018 Matthew Blount
 
 // This program is free software: you can redistribute it and/or modify
@@ -33,7 +33,7 @@ pub enum Error {
   Underflow,
 }
 
-/// The result of an Eq computation.
+/// The result of a computation.
 pub type Result<T> = std::result::Result<T, Error>;
 
 pub type Number = f64;

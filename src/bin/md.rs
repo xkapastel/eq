@@ -1,4 +1,4 @@
-// This file is a part of Eq.
+// This file is a part of Sundial.
 // Copyright (C) 2018 Matthew Blount
 
 // This program is free software: you can redistribute it and/or modify
@@ -15,13 +15,13 @@
 // License along with this program.  If not, see
 // <https://www.gnu.org/licenses./
 
-extern crate eq;
+extern crate sundial;
 
 use std::io::Read;
 
 fn main() {
   let mut stdin= String::new();
   std::io::stdin().read_to_string(&mut stdin).unwrap();
-  let blocks = eq::feed::extract_code_blocks(&stdin);
+  let blocks = sundial::feed::extract_code_blocks(&stdin);
   println!("{}", &blocks);
 }

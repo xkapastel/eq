@@ -1,4 +1,4 @@
-// This file is a part of Eq.
+// This file is a part of Sundial.
 // Copyright (C) 2018 Matthew Blount
 
 // This program is free software: you can redistribute it and/or modify

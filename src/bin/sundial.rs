@@ -1,4 +1,4 @@
-// This file is a part of Eq.
+// This file is a part of Sundial.
 // Copyright (C) 2018 Matthew Blount
 
 // This program is free software: you can redistribute it and/or modify
@@ -15,7 +15,7 @@
 // License along with this program.  If not, see
 // <https://www.gnu.org/licenses/.
 
-extern crate eq;
+extern crate sundial;
 
 use std::rc::Rc;
 use std::io::Write;
@@ -26,11 +26,11 @@ fn main() {
   let mut target_buffer = String::new();
   let space_quota       = 1024;
   let time_quota        = 1024;
-  let container_path    = std::env::var("EQ_CONTAINER").expect("boot");
-  let mut container     = eq::container::Container::from_image(
+  let container_path    = std::env::var("SUNDIAL_CONTAINER").expect("boot");
+  let mut container     = sundial::container::Container::from_image(
     &container_path, space_quota, time_quota).expect("container");
   loop {
-    print!("user@eq\nλ ");
+    print!("user@sundial\nλ ");
     std::io::stdout().flush().unwrap();
     source_buffer.clear();
     target_buffer.clear();

@@ -1,7 +1,7 @@
-Eq is a blockchain database.
+Sundial is a protocol for peer-to-peer clocks.
 
 # Bytecode
-Eq bytecode is a [concatenative language](http://tunes.org/~iepos/joy.html).
+Sundial bytecode is a [concatenative language](http://tunes.org/~iepos/joy.html).
 
 ```
          [A] app  = A
@@ -14,6 +14,3 @@ Eq bytecode is a [concatenative language](http://tunes.org/~iepos/joy.html).
          [A] run  = { A }
 { E [F] shift K } = { [E] [K] F }
 ```
-
-# Notebooks
-Notebooks are Markdown files containing Eq code blocks.

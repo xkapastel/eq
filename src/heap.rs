@@ -1,4 +1,4 @@
-// This file is a part of Eq.
+// This file is a part of Sundial.
 // Copyright (C) 2018 Matthew Blount
 
 // This program is free software: you can redistribute it and/or modify
@@ -19,7 +19,7 @@ use super::*;
 
 use std::rc::Rc;
 
-/// A pointer to some Eq object.
+/// A pointer to some object.
 #[derive(Debug, Copy, Clone, Eq, PartialEq, Hash)]
 pub struct Pointer {
   index: usize,
@@ -42,7 +42,7 @@ struct Node {
   is_visible: bool,
 }
 
-/// A garbage-collected heap of Eq objects.
+/// A garbage-collected heap.
 pub struct Heap {
   nodes: Vec<Option<Node>>,
   generation: u64,
