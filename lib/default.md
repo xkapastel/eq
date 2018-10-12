@@ -1,29 +1,28 @@
-Utilities.
+Common names for the primitive functions.
 
 ```eq
-:miss swap box cat app
-:bind swap box swap cat
-:bca box swap box swap cat miss
-```
-
-Products & coproducts.
-
-```eq
-:unit []
-:pair box swap box swap cat
-:fst app drop
-:snd app swap drop
-:case bca app
-:inl box [swap drop swap app] cat
-:inr box [bca drop swap app] cat
-```
-
-Monoids for addition and multiplication. There's an article on
-[interface-passing
-style](https://common-lisp.net/~frideau/lil-ilc2012/lil-ilc2012.html)
-that explains the idea.
-
-```eq
-:m+ [app +] [drop 0] case
-:m* [app *] [drop 1] case
+:app %app
+:box %box
+:cat %cat
+:copy %cpy
+:drop %drp
+:swap %swp
+:fix %fix
+:shift %jmp
+:forall %all
+:type %typ
+:number %num
+:+ %add
+:* %mul
+:- %inv
+:/ %neg
+:max %max
+:min %min
+:exp %exp
+:log %log
+:cos %cos
+:sin %sin
+:abs %abs
+:ceil %cel
+:floor %flr
 ```

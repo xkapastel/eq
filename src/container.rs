@@ -24,7 +24,7 @@ pub struct Container {
   delete_pattern: regex::Regex,
 }
 
-const word_pattern: &'static str = r"[a-z+\-*/<>!?=]+";
+const word_pattern: &'static str = r"[a-z0-9+\-*/<>!?=@.$;]+";
 
 impl Container {
   fn with_heap(heap: heap::Heap) -> Self {

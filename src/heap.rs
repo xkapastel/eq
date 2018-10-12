@@ -547,127 +547,127 @@ impl Heap {
           build = prev;
           build.push(xs);
         }
-        "app" => {
+        "%app" => {
           let func = Function::App;
           let object = self.new_function(func)?;
           build.push(object);
         }
-        "box" => {
+        "%box" => {
           let func = Function::Box;
           let object = self.new_function(func)?;
           build.push(object);
         }
-        "cat" => {
+        "%cat" => {
           let func = Function::Cat;
           let object = self.new_function(func)?;
           build.push(object);
         }
-        "copy" => {
+        "%cpy" => {
           let func = Function::Copy;
           let object = self.new_function(func)?;
           build.push(object);
         }
-        "drop" => {
+        "%drp" => {
           let func = Function::Drop;
           let object = self.new_function(func)?;
           build.push(object);
         }
-        "swap" => {
+        "%swp" => {
           let func = Function::Swap;
           let object = self.new_function(func)?;
           build.push(object);
         }
-        "fix" => {
+        "%fix" => {
           let func = Function::Fix;
           let object = self.new_function(func)?;
           build.push(object);
         }
-        "run" => {
+        "%run" => {
           let func = Function::Run;
           let object = self.new_function(func)?;
           build.push(object);
         }
-        "shift" => {
+        "%fix" => {
           let func = Function::Shift;
           let object = self.new_function(func)?;
           build.push(object);
         }
-        "real" => {
+        "%num" => {
           let func = Function::Real;
           let object = self.new_function(func)?;
           build.push(object);
         }
-        "type" => {
+        "%set" => {
           let func = Function::Type;
           let object = self.new_function(func)?;
           build.push(object);
         }
-        "forall" => {
+        "%all" => {
           let func = Function::Forall;
           let object = self.new_function(func)?;
           build.push(object);
         }
-        "min" => {
+        "%min" => {
           let func = Function::Min;
           let object = self.new_function(func)?;
           build.push(object);
         }
-        "max" => {
+        "%max" => {
           let func = Function::Max;
           let object = self.new_function(func)?;
           build.push(object);
         }
-        "+" => {
+        "%add" => {
           let func = Function::Add;
           let object = self.new_function(func)?;
           build.push(object);
         }
-        "-" => {
+        "%neg" => {
           let func = Function::Negate;
           let object = self.new_function(func)?;
           build.push(object);
         }
-        "*" => {
+        "%mul" => {
           let func = Function::Multiply;
           let object = self.new_function(func)?;
           build.push(object);
         }
-        "/" => {
+        "%inv" => {
           let func = Function::Invert;
           let object = self.new_function(func)?;
           build.push(object);
         }
-        "exp" => {
+        "%exp" => {
           let func = Function::Exp;
           let object = self.new_function(func)?;
           build.push(object);
         }
-        "log" => {
+        "%log" => {
           let func = Function::Log;
           let object = self.new_function(func)?;
           build.push(object);
         }
-        "cos" => {
+        "%cos" => {
           let func = Function::Cos;
           let object = self.new_function(func)?;
           build.push(object);
         }
-        "sin" => {
+        "%sin" => {
           let func = Function::Sin;
           let object = self.new_function(func)?;
           build.push(object);
         }
-        "abs" => {
+        "%abs" => {
           let func = Function::Abs;
           let object = self.new_function(func)?;
           build.push(object);
         }
-        "ceil" => {
+        "%cel" => {
           let func = Function::Ceil;
           let object = self.new_function(func)?;
           build.push(object);
         }
-        "floor" => {
+        "%flr" => {
           let func = Function::Floor;
           let object = self.new_function(func)?;
           build.push(object);
@@ -704,79 +704,79 @@ impl Heap {
       &Object::Function(ref value) => {
         match value {
           Function::App => {
-            buf.push_str("app");
+            buf.push_str("%app");
           }
           Function::Box => {
-            buf.push_str("box");
+            buf.push_str("%box");
           }
           Function::Cat => {
-            buf.push_str("cat");
+            buf.push_str("%cat");
           }
           Function::Copy => {
-            buf.push_str("copy");
+            buf.push_str("%cpy");
           }
           Function::Drop => {
-            buf.push_str("drop");
+            buf.push_str("%drp");
           }
           Function::Swap => {
-            buf.push_str("swap");
+            buf.push_str("%swp");
           }
           Function::Fix => {
-            buf.push_str("fix");
+            buf.push_str("%fix");
           }
           Function::Run => {
-            buf.push_str("run");
+            buf.push_str("%run");
           }
           Function::Shift => {
-            buf.push_str("shift");
+            buf.push_str("%jmp");
           }
           Function::Real => {
-            buf.push_str("real");
+            buf.push_str("%num");
           }
           Function::Type => {
-            buf.push_str("type");
+            buf.push_str("%typ");
           }
           Function::Forall => {
-            buf.push_str("forall");
+            buf.push_str("%all");
           }
           Function::Min => {
-            buf.push_str("min");
+            buf.push_str("%min");
           }
           Function::Max => {
-            buf.push_str("max");
+            buf.push_str("%max");
           }
           Function::Add => {
-            buf.push('+');
+            buf.push_str("%add");
           }
           Function::Negate => {
-            buf.push('-');
+            buf.push_str("%neg");
           }
           Function::Multiply => {
-            buf.push('*');
+            buf.push_str("%mul");
           }
           Function::Invert => {
-            buf.push('/');
+            buf.push_str("%inv");
           }
           Function::Exp => {
-            buf.push_str("exp");
+            buf.push_str("%exp");
           }
           Function::Log => {
-            buf.push_str("log");
+            buf.push_str("%log");
           }
           Function::Cos => {
-            buf.push_str("cos");
+            buf.push_str("%cos");
           }
           Function::Sin => {
-            buf.push_str("sin");
+            buf.push_str("%sin");
           }
           Function::Abs => {
-            buf.push_str("abs");
+            buf.push_str("%abs");
           }
           Function::Ceil => {
-            buf.push_str("ceil");
+            buf.push_str("%cel");
           }
           Function::Floor => {
-            buf.push_str("floor");
+            buf.push_str("%flr");
           }
         }
       }
@@ -784,17 +784,17 @@ impl Heap {
         match value {
           &Prop::Real(body) => {
             self.quote(body, buf);
-            buf.push_str(" real");
+            buf.push_str(" %num");
           }
           &Prop::Type(body) => {
             self.quote(body, buf)?;
-            buf.push_str(" type");
+            buf.push_str(" %typ");
           }
           &Prop::Forall(fst, snd) => {
             self.quote(fst, buf)?;
             buf.push(' ');
             self.quote(snd, buf)?;
-            buf.push_str(" forall");
+            buf.push_str(" %all");
           }
         }
       }

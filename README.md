@@ -18,13 +18,13 @@ a clock.
 Sundial bytecode is a [concatenative language](http://tunes.org/~iepos/joy.html).
 
 ```
-         [A] app  = A
-         [A] box  = [[A]]
-     [A] [B] cat  = [A B]
-         [A] copy = [A] [A]
-         [A] drop =
-     [A] [B] swap = [B] [A]
-         [A] fix  = [[A] fix A]
-         [A] run  = { A }
-{ E [F] shift K } = { [E] [K] F }
+         [A] %app = A
+         [A] %box = [[A]]
+     [B] [A] %cat = [B A]
+         [A] %cpy = [A] [A]
+         [A] %drp =
+     [B] [A] %swp = [A] [B]
+         [A] %fix = [[A] %fix A]
+         [A] %run = { A }
+ { E [F] %jmp K } = { [E] [K] F }
 ```
