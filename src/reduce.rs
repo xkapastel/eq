@@ -184,6 +184,8 @@ impl Thread {
       self.push_environment(code);
     } else if heap.is_number(code)? {
       self.push_environment(code);
+    } else if heap.is_prop(code)? {
+      self.push_environment(code);
     } else if heap.is_function(code)? {
       match heap.get_function(code)? {
         Function::App => {
@@ -278,6 +280,34 @@ impl Thread {
           self.push_environment(environment);
           self.push_environment(continuation);
           self.push_continuation_front(callback_body);
+        }
+        Function::Real => {
+          if !self.is_monadic() {
+            self.thunk(code);
+            return Ok(());
+          }
+          let source = self.pop_environment()?;
+          let target = heap.new_real(source)?;
+          self.push_environment(target);
+        }
+        Function::Type => {
+          if !self.is_monadic() {
+            self.thunk(code);
+            return Ok(());
+          }
+          let source = self.pop_environment()?;
+          let target = heap.new_type(source)?;
+          self.push_environment(target);
+        }
+        Function::Forall => {
+          if !self.is_dyadic() {
+            self.thunk(code);
+            return Ok(());
+          }
+          let snd = self.pop_environment()?;
+          let fst = self.pop_environment()?;
+          let target = heap.new_forall(fst, snd)?;
+          self.push_environment(target);
         }
         Function::Min => {
           if !self.is_dyadic() {

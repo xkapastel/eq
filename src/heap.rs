@@ -26,6 +26,12 @@ pub struct Pointer {
   generation: u64,
 }
 
+enum Prop {
+  Type(Pointer),
+  Real(Pointer),
+  Forall(Pointer, Pointer),
+}
+
 enum Object {
   Id,
   Number(Number),
@@ -34,6 +40,7 @@ enum Object {
   Block(Pointer),
   Arrow(Pointer),
   Sequence(Pointer, Pointer),
+  Prop(Prop),
 }
 
 struct Node {
@@ -64,6 +71,29 @@ impl Pointer {
   }
 }
 
+impl Prop {
+  fn is_real(&self) -> bool {
+    match self {
+      Prop::Real(_) => true,
+      _ => false,
+    }
+  }
+
+  fn is_type(&self) -> bool {
+    match self {
+      Prop::Type(_) => true,
+      _ => false,
+    }
+  }
+
+  fn is_forall(&self) -> bool {
+    match self {
+      Prop::Forall(_, _) => true,
+      _ => false,
+    }
+  }
+}
+
 impl Object {
   fn is_id(&self) -> bool {
     match self {
@@ -75,6 +105,13 @@ impl Object {
   fn is_function(&self) -> bool {
     match self {
       Object::Function(_) => true,
+      _ => false,
+    }
+  }
+
+  fn is_prop(&self) -> bool {
+    match self {
+      Object::Prop(_) => true,
       _ => false,
     }
   }
@@ -144,8 +181,23 @@ impl Heap {
     return self.put(object);
   }
 
-  fn new_function(&mut self, func: Function) -> Result<Pointer> {
+  pub fn new_function(&mut self, func: Function) -> Result<Pointer> {
     let object = Object::Function(func);
+    return self.put(object);
+  }
+
+  pub fn new_real(&mut self, body: Pointer) -> Result<Pointer> {
+    let object = Object::Prop(Prop::Real(body));
+    return self.put(object);
+  }
+
+  pub fn new_type(&mut self, body: Pointer) -> Result<Pointer> {
+    let object = Object::Prop(Prop::Type(body));
+    return self.put(object);
+  }
+
+  pub fn new_forall(&mut self, fst: Pointer, snd: Pointer) -> Result<Pointer> {
+    let object = Object::Prop(Prop::Forall(fst, snd));
     return self.put(object);
   }
 
@@ -194,6 +246,28 @@ impl Heap {
     return Ok(object.is_function());
   }
 
+  /// Predicates propositions.
+  pub fn is_prop(&self, pointer: Pointer) -> Result<bool> {
+    let object = self.get_ref(pointer)?;
+    return Ok(object.is_prop());
+  }
+
+  /// Predicates propositions.
+  pub fn is_real(&self, pointer: Pointer) -> Result<bool> {
+    let object = self.get_prop_ref(pointer)?;
+    return Ok(object.is_real());
+  }
+
+  pub fn is_type(&self, pointer: Pointer) -> Result<bool> {
+    let object = self.get_prop_ref(pointer)?;
+    return Ok(object.is_type());
+  }
+
+  pub fn is_forall(&self, pointer: Pointer) -> Result<bool> {
+    let object = self.get_prop_ref(pointer)?;
+    return Ok(object.is_forall());
+  }
+
   /// Predicates numbers.
   pub fn is_number(&self, pointer: Pointer) -> Result<bool> {
     let object = self.get_ref(pointer)?;
@@ -235,6 +309,61 @@ impl Heap {
     match self.get_ref(pointer)? {
       &Object::Number(value) => {
         return Ok(value);
+      }
+      _ => {
+        return Err(Error::Tag);
+      }
+    }
+  }
+
+  pub fn get_function(&self, pointer: Pointer) -> Result<Function> {
+    match self.get_ref(pointer)? {
+      &Object::Function(ref value) => {
+        return Ok(*value);
+      }
+      _ => {
+        return Err(Error::Tag);
+      }
+    }
+  }
+
+  pub fn get_type_body(&self, pointer: Pointer) -> Result<Pointer> {
+    match self.get_prop_ref(pointer)? {
+      &Prop::Type(body) => {
+        return Ok(body);
+      }
+      _ => {
+        return Err(Error::Tag);
+      }
+    }
+  }
+
+  pub fn get_real_body(&self, pointer: Pointer) -> Result<Pointer> {
+    match self.get_prop_ref(pointer)? {
+      &Prop::Real(body) => {
+        return Ok(body);
+      }
+      _ => {
+        return Err(Error::Tag);
+      }
+    }
+  }
+
+  pub fn get_forall_fst(&self, pointer: Pointer) -> Result<Pointer> {
+    match self.get_prop_ref(pointer)? {
+      &Prop::Forall(fst, _) => {
+        return Ok(fst);
+      }
+      _ => {
+        return Err(Error::Tag);
+      }
+    }
+  }
+
+  pub fn get_forall_snd(&self, pointer: Pointer) -> Result<Pointer> {
+    match self.get_prop_ref(pointer)? {
+      &Prop::Forall(_, snd) => {
+        return Ok(snd);
       }
       _ => {
         return Err(Error::Tag);
@@ -315,6 +444,20 @@ impl Heap {
           }
           &Object::Arrow(body) => {
             return self.mark(body);
+          }
+          &Object::Prop(ref value) => {
+            match value {
+              &Prop::Type(body) => {
+                return self.mark(body);
+              }
+              &Prop::Real(body) => {
+                return self.mark(body);
+              }
+              &Prop::Forall(fst, snd) => {
+                self.mark(fst)?;
+                return self.mark(snd);
+              }
+            }
           }
           &Object::Sequence(head, tail) => {
             self.mark(head)?;
@@ -449,6 +592,21 @@ impl Heap {
           let object = self.new_function(func)?;
           build.push(object);
         }
+        "real" => {
+          let func = Function::Real;
+          let object = self.new_function(func)?;
+          build.push(object);
+        }
+        "type" => {
+          let func = Function::Type;
+          let object = self.new_function(func)?;
+          build.push(object);
+        }
+        "forall" => {
+          let func = Function::Forall;
+          let object = self.new_function(func)?;
+          build.push(object);
+        }
         "min" => {
           let func = Function::Min;
           let object = self.new_function(func)?;
@@ -572,6 +730,15 @@ impl Heap {
           Function::Shift => {
             buf.push_str("shift");
           }
+          Function::Real => {
+            buf.push_str("real");
+          }
+          Function::Type => {
+            buf.push_str("type");
+          }
+          Function::Forall => {
+            buf.push_str("forall");
+          }
           Function::Min => {
             buf.push_str("min");
           }
@@ -610,6 +777,24 @@ impl Heap {
           }
           Function::Floor => {
             buf.push_str("floor");
+          }
+        }
+      }
+      &Object::Prop(ref value) => {
+        match value {
+          &Prop::Real(body) => {
+            self.quote(body, buf);
+            buf.push_str(" real");
+          }
+          &Prop::Type(body) => {
+            self.quote(body, buf)?;
+            buf.push_str(" type");
+          }
+          &Prop::Forall(fst, snd) => {
+            self.quote(fst, buf)?;
+            buf.push(' ');
+            self.quote(snd, buf)?;
+            buf.push_str(" forall");
           }
         }
       }
@@ -668,10 +853,10 @@ impl Heap {
     }
   }
 
-  pub fn get_function(&self, pointer: Pointer) -> Result<Function> {
+  fn get_prop_ref(&self, pointer: Pointer) -> Result<&Prop> {
     match self.get_ref(pointer)? {
-      &Object::Function(ref value) => {
-        return Ok(*value);
+      &Object::Prop(ref value) => {
+        return Ok(value);
       }
       _ => {
         return Err(Error::Tag);

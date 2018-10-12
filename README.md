@@ -6,6 +6,9 @@ receives a message, it attempts to decrypt it with every private key
 that it knows about. If it cannot decrypt the message, it sends it to
 every other node that it knows about.
 
+A clock is a collection of computers that agree on a sequence of
+events.
+
 The content of messages are transactions against a clock. A simple
 majority of the compute devoted to the clock determines which
 transactions take place. Nodes accrue karma for their contributions to
