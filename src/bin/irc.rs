@@ -39,9 +39,10 @@ fn irc_config() -> mirc::Config {
 fn main() {
   let space_quota = 4096;
   let time_quota = 4096;
-  let image_path = std::env::var("SUNDIAL_CONTAINER").unwrap();
-  let mut container = sundial::Container::from_image(
-    &image_path, space_quota, time_quota).unwrap();
+  let pod_path = std::env::var("SUNDIAL_POD").unwrap();
+  let pod_src = std::fs::read_to_string(pod_path).unwrap();
+  let mut pod = sundial::Pod::from_string(
+    &pod_src, space_quota, time_quota).unwrap();
   let mut reactor = mirc::IrcReactor::new().unwrap();
   let config = irc_config();
   let client = reactor.prepare_client_and_connect(&config).unwrap();
@@ -56,7 +57,7 @@ fn main() {
         if message_body.starts_with(&command_prefix) {
           let source = message_body
             .trim_left_matches(&command_prefix).trim();
-          match container.eval(&source, 1024) {
+          match pod.eval(&source, 1024) {
             Ok(target) => {
               let command = mirc::Command::PRIVMSG(response_target, target);
               client.send(command)?;

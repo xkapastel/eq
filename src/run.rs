@@ -18,34 +18,34 @@
 use super::*;
 
 pub fn reduce(
-  continuation: heap::Pointer,
-  heap: &mut heap::Heap,
-  dictionary: &Dictionary,
-  mut time_quota: u64) -> Result<heap::Pointer> {
+  continuation: mem::Ptr,
+  mem: &mut mem::Mem,
+  tab: &mem::Tab,
+  mut time_quota: u64) -> Result<mem::Ptr> {
   let mut thread = Thread::with_continuation(continuation);
   while time_quota > 0 && thread.has_continuation() {
     time_quota -= 1;
-    thread.step(heap, dictionary)?;
+    thread.step(mem, tab)?;
   }
   if thread.has_continuation() {
-    let tail = thread.get_continuation(heap)?;
-    let head = thread.get_environment(heap)?;
-    return heap.new_sequence(head, tail);
+    let snd = thread.get_continuation(mem)?;
+    let fst = thread.get_environment(mem)?;
+    return mem.new_cat(fst, snd);
   }
-  return thread.get_environment(heap);
+  return thread.get_environment(mem);
 }
 
 use std::collections::VecDeque;
 
 #[derive(Debug, Clone)]
 struct Frame {
-  con: VecDeque<heap::Pointer>,
-  env: Vec<heap::Pointer>,
-  err: Vec<heap::Pointer>,
+  con: VecDeque<mem::Ptr>,
+  env: Vec<mem::Ptr>,
+  err: Vec<mem::Ptr>,
 }
 
 impl Frame {
-  fn new(root: heap::Pointer) -> Self {
+  fn new(root: mem::Ptr) -> Self {
     let mut con = VecDeque::new();
     con.push_back(root);
     Frame {
@@ -69,7 +69,7 @@ pub struct Thread {
 }
 
 impl Thread {
-  pub fn with_continuation(continuation: heap::Pointer) -> Self {
+  pub fn with_continuation(continuation: mem::Ptr) -> Self {
     Thread {
       frame: Frame::new(continuation),
       stack: Vec::new(),
@@ -81,25 +81,25 @@ impl Thread {
   }
 
   pub fn get_continuation(
-    &mut self, heap: &mut heap::Heap) -> Result<heap::Pointer> {
-    let mut xs = heap.new_id()?;
+    &mut self, mem: &mut mem::Mem) -> Result<mem::Ptr> {
+    let mut xs = mem.new_nil()?;
     for object in self.frame.con.iter() {
-      xs = heap.new_sequence(*object, xs)?;
+      xs = mem.new_cat(*object, xs)?;
     }
     self.frame.con.clear();
     return Ok(xs);
   }
 
-  pub fn push_continuation_front(&mut self, data: heap::Pointer) {
+  pub fn push_continuation_front(&mut self, data: mem::Ptr) {
     self.frame.con.push_front(data);
   }
 
-  pub fn push_continuation_back(&mut self, data: heap::Pointer) {
+  pub fn push_continuation_back(&mut self, data: mem::Ptr) {
     self.frame.con.push_back(data);
   }
 
   pub fn pop_continuation(
-    &mut self, heap: &mut heap::Heap) -> Result<heap::Pointer> {
+    &mut self, mem: &mut mem::Mem) -> Result<mem::Ptr> {
     loop {
       if self.frame.con.is_empty() {
         if self.stack.is_empty() {
@@ -107,8 +107,8 @@ impl Thread {
         }
         let mut previous = self.stack.pop().ok_or(Error::Bug)?;
         if self.frame.is_thunked() {
-          let arrow_body = self.get_environment(heap)?;
-          let arrow = heap.new_arrow(arrow_body)?;
+          let arrow_body = self.get_environment(mem)?;
+          let arrow = mem.new_arr(arrow_body)?;
           self.frame = previous;
           self.thunk(arrow);
         } else {
@@ -117,11 +117,11 @@ impl Thread {
         }
       }
       let code = self.frame.con.pop_front().ok_or(Error::Bug)?;
-      if heap.is_sequence(code)? {
-        let head = heap.get_sequence_head(code)?;
-        let tail = heap.get_sequence_tail(code)?;
-        self.frame.con.push_front(tail);
-        self.frame.con.push_front(head);
+      if mem.is_cat(code)? {
+        let fst = mem.get_cat_fst(code)?;
+        let snd = mem.get_cat_snd(code)?;
+        self.frame.con.push_front(snd);
+        self.frame.con.push_front(fst);
       } else {
         return Ok(code);
       }
@@ -137,89 +137,89 @@ impl Thread {
   }
 
   pub fn get_environment(
-    &mut self, heap: &mut heap::Heap) -> Result<heap::Pointer> {
-    let mut xs = heap.new_id()?;
+    &mut self, mem: &mut mem::Mem) -> Result<mem::Ptr> {
+    let mut xs = mem.new_nil()?;
     for object in self.frame.env.iter().rev() {
-      xs = heap.new_sequence(*object, xs)?;
+      xs = mem.new_cat(*object, xs)?;
     }
     for object in self.frame.err.iter().rev() {
-      xs = heap.new_sequence(*object, xs)?;
+      xs = mem.new_cat(*object, xs)?;
     }
     self.frame.env.clear();
     self.frame.err.clear();
     return Ok(xs);
   }
 
-  pub fn push_environment(&mut self, data: heap::Pointer) {
+  pub fn push_environment(&mut self, data: mem::Ptr) {
     self.frame.env.push(data);
   }
 
-  pub fn pop_environment(&mut self) -> Result<heap::Pointer> {
+  pub fn pop_environment(&mut self) -> Result<mem::Ptr> {
     return self.frame.env.pop().ok_or(Error::Underflow);
   }
 
-  pub fn peek_environment(&mut self) -> Result<heap::Pointer> {
+  pub fn peek_environment(&mut self) -> Result<mem::Ptr> {
     return self.frame.env.last().map(|x| *x).ok_or(Error::Underflow);
   }
 
-  pub fn push_frame(&mut self, root: heap::Pointer) {
+  pub fn push_frame(&mut self, root: mem::Ptr) {
     self.stack.push(self.frame.clone());
     self.frame = Frame::new(root);
   }
 
-  pub fn thunk(&mut self, root: heap::Pointer) {
+  pub fn thunk(&mut self, root: mem::Ptr) {
     self.frame.err.append(&mut self.frame.env);
     self.frame.err.push(root);
   }
 
   pub fn step(
     &mut self,
-    heap: &mut heap::Heap,
-    dictionary: &HashMap<Rc<str>, heap::Pointer>) -> Result<()> {
-    let code = self.pop_continuation(heap)?;
-    if heap.is_arrow(code)? {
-      let body = heap.get_arrow_body(code)?;
+    mem: &mut mem::Mem,
+    tab: &HashMap<Rc<str>, mem::Ptr>) -> Result<()> {
+    let code = self.pop_continuation(mem)?;
+    if mem.is_num(code)? {
+      self.push_environment(code);
+    } else if mem.is_pro(code)? {
+      self.push_environment(code);
+    } else if mem.is_abs(code)? {
+      self.push_environment(code);
+    } else if mem.is_arr(code)? {
+      let body = mem.get_arr_body(code)?;
       self.push_frame(body);
-    } else if heap.is_block(code)? {
-      self.push_environment(code);
-    } else if heap.is_number(code)? {
-      self.push_environment(code);
-    } else if heap.is_prop(code)? {
-      self.push_environment(code);
-    } else if heap.is_function(code)? {
-      match heap.get_function(code)? {
-        Function::App => {
+    } else if mem.is_fun(code)? {
+      match mem.get_fun(code)? {
+        Fun::App => {
           if !self.is_monadic() {
             self.thunk(code);
             return Ok(());
           }
           let source = self.pop_environment()?;
-          let target = heap.get_block_body(source)?;
+          let target = mem.get_abs_body(source)?;
           self.push_continuation_front(target);
         }
-        Function::Box => {
+        Fun::Box => {
           if !self.is_monadic() {
             self.thunk(code);
             return Ok(());
           }
           let source = self.pop_environment()?;
-          let target = heap.new_block(source)?;
+          let target = mem.new_abs(source)?;
           self.push_environment(target);
         }
-        Function::Cat => {
+        Fun::Cat => {
           if !self.is_dyadic() {
             self.thunk(code);
             return Ok(());
           }
           let rhs = self.pop_environment()?;
           let lhs = self.pop_environment()?;
-          let rhs_body = heap.get_block_body(rhs)?;
-          let lhs_body = heap.get_block_body(lhs)?;
-          let target_body = heap.new_sequence(lhs_body, rhs_body)?;
-          let target = heap.new_block(target_body)?;
+          let rhs_body = mem.get_abs_body(rhs)?;
+          let lhs_body = mem.get_abs_body(lhs)?;
+          let target_body = mem.new_cat(lhs_body, rhs_body)?;
+          let target = mem.new_abs(target_body)?;
           self.push_environment(target);
         }
-        Function::Copy => {
+        Fun::Cpy => {
           if !self.is_monadic() {
             self.thunk(code);
             return Ok(());
@@ -227,14 +227,14 @@ impl Thread {
           let source = self.peek_environment()?;
           self.push_environment(source);
         }
-        Function::Drop => {
+        Fun::Drp => {
           if !self.is_monadic() {
             self.thunk(code);
             return Ok(());
           }
           self.pop_environment()?;
         }
-        Function::Swap => {
+        Fun::Swp => {
           if !self.is_dyadic() {
             self.thunk(code);
             return Ok(());
@@ -244,231 +244,231 @@ impl Thread {
           self.push_environment(fst);
           self.push_environment(snd);
         }
-        Function::Fix => {
+        Fun::Fix => {
           if !self.is_monadic() {
             self.thunk(code);
             return Ok(());
           }
           let source = self.pop_environment()?;
-          let source_body = heap.get_block_body(source)?;
-          let fixed = heap.new_sequence(source, code)?;
-          let target_body = heap.new_sequence(fixed, source_body)?;
-          let target = heap.new_block(target_body)?;
+          let source_body = mem.get_abs_body(source)?;
+          let fixed = mem.new_cat(source, code)?;
+          let target_body = mem.new_cat(fixed, source_body)?;
+          let target = mem.new_abs(target_body)?;
           self.push_environment(target);
         }
-        Function::Run => {
+        Fun::Run => {
           if !self.is_monadic() {
             self.thunk(code);
             return Ok(());
           }
           let source = self.pop_environment()?;
-          let source_body = heap.get_block_body(source)?;
-          let target = heap.new_arrow(source_body)?;
+          let source_body = mem.get_abs_body(source)?;
+          let target = mem.new_arr(source_body)?;
           self.push_continuation_front(target);
         }
-        Function::Shift => {
+        Fun::Jmp => {
           if !self.is_monadic() || self.stack.is_empty() {
             self.thunk(code);
             return Ok(());
           }
           let callback = self.pop_environment()?;
-          let callback_body = heap.get_block_body(callback)?;
-          let env_body = self.get_environment(heap)?;
-          let con_body = self.get_continuation(heap)?;
-          let environment = heap.new_block(env_body)?;
-          let continuation = heap.new_block(con_body)?;
+          let callback_body = mem.get_abs_body(callback)?;
+          let env_body = self.get_environment(mem)?;
+          let con_body = self.get_continuation(mem)?;
+          let environment = mem.new_abs(env_body)?;
+          let continuation = mem.new_abs(con_body)?;
           self.push_environment(environment);
           self.push_environment(continuation);
           self.push_continuation_front(callback_body);
         }
-        Function::Real => {
+        Fun::Num => {
           if !self.is_monadic() {
             self.thunk(code);
             return Ok(());
           }
           let source = self.pop_environment()?;
-          let target = heap.new_real(source)?;
+          let target = mem.new_nump(source)?;
           self.push_environment(target);
         }
-        Function::Type => {
+        Fun::Set => {
           if !self.is_monadic() {
             self.thunk(code);
             return Ok(());
           }
           let source = self.pop_environment()?;
-          let target = heap.new_type(source)?;
+          let target = mem.new_setp(source)?;
           self.push_environment(target);
         }
-        Function::Forall => {
+        Fun::All => {
           if !self.is_dyadic() {
             self.thunk(code);
             return Ok(());
           }
           let snd = self.pop_environment()?;
           let fst = self.pop_environment()?;
-          let target = heap.new_forall(fst, snd)?;
+          let target = mem.new_allp(fst, snd)?;
           self.push_environment(target);
         }
-        Function::Min => {
+        Fun::Min => {
           if !self.is_dyadic() {
             self.thunk(code);
             return Ok(());
           }
           let snd = self.pop_environment()?;
           let fst = self.pop_environment()?;
-          let snd_value = heap.get_number(snd)?;
-          let fst_value = heap.get_number(fst)?;
+          let snd_value = mem.get_num(snd)?;
+          let fst_value = mem.get_num(fst)?;
           let target_value = snd_value.min(fst_value);
-          let target = heap.new_number(target_value)?;
+          let target = mem.new_num(target_value)?;
           self.push_environment(target);
         }
-        Function::Max => {
+        Fun::Max => {
           if !self.is_dyadic() {
             self.thunk(code);
             return Ok(());
           }
           let snd = self.pop_environment()?;
           let fst = self.pop_environment()?;
-          let snd_value = heap.get_number(snd)?;
-          let fst_value = heap.get_number(fst)?;
+          let snd_value = mem.get_num(snd)?;
+          let fst_value = mem.get_num(fst)?;
           let target_value = snd_value.max(fst_value);
-          let target = heap.new_number(target_value)?;
+          let target = mem.new_num(target_value)?;
           self.push_environment(target);
         }
-        Function::Add => {
+        Fun::Add => {
           if !self.is_dyadic() {
             self.thunk(code);
             return Ok(());
           }
           let snd = self.pop_environment()?;
           let fst = self.pop_environment()?;
-          let snd_value = heap.get_number(snd)?;
-          let fst_value = heap.get_number(fst)?;
+          let snd_value = mem.get_num(snd)?;
+          let fst_value = mem.get_num(fst)?;
           let target_value = snd_value + fst_value;
-          let target = heap.new_number(target_value)?;
+          let target = mem.new_num(target_value)?;
           self.push_environment(target);
         }
-        Function::Negate => {
+        Fun::Neg => {
           if !self.is_monadic() {
             self.thunk(code);
             return Ok(());
           }
           let source = self.pop_environment()?;
-          let source_value = heap.get_number(source)?;
+          let source_value = mem.get_num(source)?;
           let target_value = 0.0 - source_value;
-          let target = heap.new_number(target_value)?;
+          let target = mem.new_num(target_value)?;
           self.push_environment(target);
         }
-        Function::Multiply => {
+        Fun::Mul => {
           if !self.is_dyadic() {
             self.thunk(code);
             return Ok(());
           }
           let snd = self.pop_environment()?;
           let fst = self.pop_environment()?;
-          let snd_value = heap.get_number(snd)?;
-          let fst_value = heap.get_number(fst)?;
+          let snd_value = mem.get_num(snd)?;
+          let fst_value = mem.get_num(fst)?;
           let target_value = snd_value * fst_value;
-          let target = heap.new_number(target_value)?;
+          let target = mem.new_num(target_value)?;
           self.push_environment(target);
         }
-        Function::Invert => {
+        Fun::Inv => {
           if !self.is_monadic() {
             self.thunk(code);
             return Ok(());
           }
           let source = self.pop_environment()?;
-          let source_value = heap.get_number(source)?;
+          let source_value = mem.get_num(source)?;
           if source_value == 0.0 {
             self.push_environment(source);
             self.thunk(code);
             return Ok(());
           }
           let target_value = 1.0 / source_value;
-          let target = heap.new_number(target_value)?;
+          let target = mem.new_num(target_value)?;
           self.push_environment(target);
         }
-        Function::Exp => {
+        Fun::Exp => {
           if !self.is_monadic() {
             self.thunk(code);
             return Ok(());
           }
           let source = self.pop_environment()?;
-          let source_value = heap.get_number(source)?;
+          let source_value = mem.get_num(source)?;
           let target_value = source_value.exp();
-          let target = heap.new_number(target_value)?;
+          let target = mem.new_num(target_value)?;
           self.push_environment(target);
         }
-        Function::Log => {
+        Fun::Log => {
           if !self.is_monadic() {
             self.thunk(code);
             return Ok(());
           }
           let source = self.pop_environment()?;
-          let source_value = heap.get_number(source)?;
+          let source_value = mem.get_num(source)?;
           let target_value = source_value.ln();
-          let target = heap.new_number(target_value)?;
+          let target = mem.new_num(target_value)?;
           self.push_environment(target);
         }
-        Function::Cos => {
+        Fun::Cos => {
           if !self.is_monadic() {
             self.thunk(code);
             return Ok(());
           }
           let source = self.pop_environment()?;
-          let source_value = heap.get_number(source)?;
+          let source_value = mem.get_num(source)?;
           let target_value = source_value.cos();
-          let target = heap.new_number(target_value)?;
+          let target = mem.new_num(target_value)?;
           self.push_environment(target);
         }
-        Function::Sin => {
+        Fun::Sin => {
           if !self.is_monadic() {
             self.thunk(code);
             return Ok(());
           }
           let source = self.pop_environment()?;
-          let source_value = heap.get_number(source)?;
+          let source_value = mem.get_num(source)?;
           let target_value = source_value.sin();
-          let target = heap.new_number(target_value)?;
+          let target = mem.new_num(target_value)?;
           self.push_environment(target);
         }
-        Function::Abs => {
+        Fun::Abs => {
           if !self.is_monadic() {
             self.thunk(code);
             return Ok(());
           }
           let source = self.pop_environment()?;
-          let source_value = heap.get_number(source)?;
+          let source_value = mem.get_num(source)?;
           let target_value = source_value.abs();
-          let target = heap.new_number(target_value)?;
+          let target = mem.new_num(target_value)?;
           self.push_environment(target);
         }
-        Function::Ceil => {
+        Fun::Cel => {
           if !self.is_monadic() {
             self.thunk(code);
             return Ok(());
           }
           let source = self.pop_environment()?;
-          let source_value = heap.get_number(source)?;
+          let source_value = mem.get_num(source)?;
           let target_value = source_value.ceil();
-          let target = heap.new_number(target_value)?;
+          let target = mem.new_num(target_value)?;
           self.push_environment(target);
         }
-        Function::Floor => {
+        Fun::Flr => {
           if !self.is_monadic() {
             self.thunk(code);
             return Ok(());
           }
           let source = self.pop_environment()?;
-          let source_value = heap.get_number(source)?;
+          let source_value = mem.get_num(source)?;
           let target_value = source_value.floor();
-          let target = heap.new_number(target_value)?;
+          let target = mem.new_num(target_value)?;
           self.push_environment(target);
         }
       }
-    } else if heap.is_word(code)? {
-      let code_value = heap.get_word(code)?;
-      match dictionary.get(&code_value) {
+    } else if mem.is_sym(code)? {
+      let code_value = mem.get_sym(code)?;
+      match tab.get(&code_value) {
         Some(binding) => {
           self.push_continuation_front(*binding);
         }
@@ -477,7 +477,7 @@ impl Thread {
         }
       }
       return Ok(());
-    } else if heap.is_id(code)? {
+    } else if mem.is_nil(code)? {
       return Ok(());
     } else {
       return Err(Error::Bug);

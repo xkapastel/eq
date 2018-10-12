@@ -36,38 +36,38 @@ pub enum Error {
 /// The result of a computation.
 pub type Result<T> = std::result::Result<T, Error>;
 
-pub type Number = f64;
+pub type Num = f64;
 
 #[derive(Debug, Copy, Clone)]
-pub enum Function {
+pub enum Fun {
   App,
   Box,
   Cat,
-  Copy,
-  Drop,
-  Swap,
+  Cpy,
+  Drp,
+  Swp,
   Fix,
   Run,
-  Shift,
-  Real,
-  Type,
-  Forall,
+  Jmp,
+  Num,
+  Set,
+  All,
   Min,
   Max,
   Add,
-  Negate,
-  Multiply,
-  Invert,
+  Neg,
+  Mul,
+  Inv,
   Exp,
   Log,
   Cos,
   Sin,
   Abs,
-  Ceil,
-  Floor,
+  Cel,
+  Flr,
 }
 
-/// Halt the computation is the given condition is false.
+/// Halt the computation if the given condition is false.
 pub fn assert(flag: Result<bool>) -> Result<()> {
   match flag {
     Ok(true) => {
@@ -82,14 +82,12 @@ pub fn assert(flag: Result<bool>) -> Result<()> {
   }
 }
 
-pub mod heap;
-pub mod reduce;
-pub mod container;
-pub mod feed;
+pub mod mem;
+pub mod run;
+pub mod pod;
 
-pub use self::container::Container;
+pub use self::pod::Pod;
 
 use std::rc::Rc;
 use std::collections::HashMap;
 
-pub type Dictionary = HashMap<Rc<str>, heap::Pointer>;

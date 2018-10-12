@@ -26,21 +26,17 @@ fn main() {
   let mut target_buffer = String::new();
   let space_quota       = 1024;
   let time_quota        = 1024;
-  let container_path    = std::env::var("SUNDIAL_CONTAINER").expect("boot");
-  let mut container     = sundial::container::Container::from_image(
-    &container_path, space_quota, time_quota).expect("container");
+  let pod_path          = std::env::var("SUNDIAL_POD").unwrap();
+  let pod_src           = std::fs::read_to_string(&pod_path).unwrap();
+  let mut pod           = sundial::pod::Pod::from_string(
+    &pod_src, space_quota, time_quota).unwrap();
   loop {
     print!("user@sundial\nλ ");
     std::io::stdout().flush().unwrap();
     source_buffer.clear();
     target_buffer.clear();
-    std::io::stdin().read_line(&mut source_buffer).expect("stdin");
-    if source_buffer.starts_with(".dump") {
-      let dump = container.to_string().expect("dump");
-      print!("{}", dump);
-    } else {
-      let target = container.eval(&source_buffer, time_quota).expect("eval");
-      println!("=> {}", &target);
-    }
+    std::io::stdin().read_line(&mut source_buffer).unwrap();
+    let target = pod.eval(&source_buffer, time_quota).unwrap();
+    println!("=> {}", &target);
   }
 }

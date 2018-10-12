@@ -21,139 +21,141 @@ use std::rc::Rc;
 
 /// A pointer to some object.
 #[derive(Debug, Copy, Clone, Eq, PartialEq, Hash)]
-pub struct Pointer {
+pub struct Ptr {
   index: usize,
   generation: u64,
 }
 
-enum Prop {
-  Type(Pointer),
-  Real(Pointer),
-  Forall(Pointer, Pointer),
+pub type Tab = HashMap<Rc<str>, mem::Ptr>;
+
+enum Pro {
+  Set(Ptr),
+  Num(Ptr),
+  All(Ptr, Ptr),
 }
 
-enum Object {
-  Id,
-  Number(Number),
-  Word(Rc<str>),
-  Function(Function),
-  Block(Pointer),
-  Arrow(Pointer),
-  Sequence(Pointer, Pointer),
-  Prop(Prop),
+enum Obj {
+  Nil,
+  Num(Num),
+  Sym(Rc<str>),
+  Fun(Fun),
+  Abs(Ptr),
+  Arr(Ptr),
+  Cat(Ptr, Ptr),
+  Pro(Pro),
 }
 
 struct Node {
-  object: Object,
+  object: Obj,
   generation: u64,
   is_visible: bool,
 }
 
 /// A garbage-collected heap.
-pub struct Heap {
+pub struct Mem {
   nodes: Vec<Option<Node>>,
   generation: u64,
 }
 
-impl Pointer {
+impl Ptr {
   fn id() -> Self {
-    Pointer {
+    Ptr {
       index: 0,
       generation: 0,
     }
   }
 
   fn new(index: usize, generation: u64) -> Self {
-    Pointer {
+    Ptr {
       index: index,
       generation: generation,
     }
   }
 }
 
-impl Prop {
-  fn is_real(&self) -> bool {
+impl Pro {
+  fn is_num(&self) -> bool {
     match self {
-      Prop::Real(_) => true,
+      Pro::Num(_) => true,
       _ => false,
     }
   }
 
-  fn is_type(&self) -> bool {
+  fn is_set(&self) -> bool {
     match self {
-      Prop::Type(_) => true,
+      Pro::Set(_) => true,
       _ => false,
     }
   }
 
-  fn is_forall(&self) -> bool {
+  fn is_all(&self) -> bool {
     match self {
-      Prop::Forall(_, _) => true,
+      Pro::All(_, _) => true,
       _ => false,
     }
   }
 }
 
-impl Object {
-  fn is_id(&self) -> bool {
+impl Obj {
+  fn is_nil(&self) -> bool {
     match self {
-      Object::Id => true,
+      Obj::Nil => true,
       _ => false,
     }
   }
 
-  fn is_function(&self) -> bool {
+  fn is_fun(&self) -> bool {
     match self {
-      Object::Function(_) => true,
+      Obj::Fun(_) => true,
       _ => false,
     }
   }
 
-  fn is_prop(&self) -> bool {
+  fn is_pro(&self) -> bool {
     match self {
-      Object::Prop(_) => true,
+      Obj::Pro(_) => true,
       _ => false,
     }
   }
 
-  fn is_number(&self) -> bool {
+  fn is_num(&self) -> bool {
     match self {
-      Object::Number(_) => true,
+      Obj::Num(_) => true,
       _ => false,
     }
   }
 
-  fn is_word(&self) -> bool {
+  fn is_sym(&self) -> bool {
     match self {
-      Object::Word(_) => true,
+      Obj::Sym(_) => true,
       _ => false,
     }
   }
 
-  fn is_block(&self) -> bool {
+  fn is_abs(&self) -> bool {
     match self {
-      Object::Block(_) => true,
+      Obj::Abs(_) => true,
       _ => false,
     }
   }
 
-  fn is_arrow(&self) -> bool {
+  fn is_arr(&self) -> bool {
     match self {
-      Object::Arrow(_) => true,
+      Obj::Arr(_) => true,
       _ => false,
     }
   }
 
-  fn is_sequence(&self) -> bool {
+  fn is_cat(&self) -> bool {
     match self {
-      Object::Sequence(_, _) => true,
+      Obj::Cat(_, _) => true,
       _ => false,
     }
   }
 }
 
 impl Node {
-  fn new(object: Object, generation: u64) -> Self {
+  fn new(object: Obj, generation: u64) -> Self {
     Node {
       object: object,
       generation: generation,
@@ -162,140 +164,137 @@ impl Node {
   }
 }
 
-impl Heap {
+impl Mem {
   /// Creates a heap with the given capacity.
   pub fn with_capacity(capacity: usize) -> Self {
     let mut nodes = Vec::with_capacity(capacity);
     for _ in 0..capacity {
       nodes.push(None);
     }
-    Heap {
+    Mem {
       nodes: nodes,
       generation: 0,
     }
   }
   
-  /// Returns the id object
-  pub fn new_id(&mut self) -> Result<Pointer> {
-    let object = Object::Id;
+  /// Returns the nil object
+  pub fn new_nil(&mut self) -> Result<Ptr> {
+    let object = Obj::Nil;
     return self.put(object);
   }
 
-  pub fn new_function(&mut self, func: Function) -> Result<Pointer> {
-    let object = Object::Function(func);
+  pub fn new_fun(&mut self, func: Fun) -> Result<Ptr> {
+    let object = Obj::Fun(func);
     return self.put(object);
   }
 
-  pub fn new_real(&mut self, body: Pointer) -> Result<Pointer> {
-    let object = Object::Prop(Prop::Real(body));
+  pub fn new_nump(&mut self, body: Ptr) -> Result<Ptr> {
+    let object = Obj::Pro(Pro::Num(body));
     return self.put(object);
   }
 
-  pub fn new_type(&mut self, body: Pointer) -> Result<Pointer> {
-    let object = Object::Prop(Prop::Type(body));
+  pub fn new_setp(&mut self, body: Ptr) -> Result<Ptr> {
+    let object = Obj::Pro(Pro::Set(body));
     return self.put(object);
   }
 
-  pub fn new_forall(&mut self, fst: Pointer, snd: Pointer) -> Result<Pointer> {
-    let object = Object::Prop(Prop::Forall(fst, snd));
+  pub fn new_allp(&mut self, fst: Ptr, snd: Ptr) -> Result<Ptr> {
+    let object = Obj::Pro(Pro::All(fst, snd));
     return self.put(object);
   }
 
   /// Creates a new number.
-  pub fn new_number(&mut self, value: Number) -> Result<Pointer> {
-    let object = Object::Number(value);
+  pub fn new_num(&mut self, value: Num) -> Result<Ptr> {
+    let object = Obj::Num(value);
     return self.put(object);
   }
 
-  /// Creates a new word.
-  pub fn new_word(&mut self, value: Rc<str>) -> Result<Pointer> {
-    let object = Object::Word(value);
+  /// Creates a new symbol.
+  pub fn new_sym(&mut self, value: Rc<str>) -> Result<Ptr> {
+    let object = Obj::Sym(value);
     return self.put(object);
   }
 
-  /// Creates a new block.
-  pub fn new_block(&mut self, body: Pointer) -> Result<Pointer> {
-    let object = Object::Block(body);
+  /// Creates a new abstraction.
+  pub fn new_abs(&mut self, body: Ptr) -> Result<Ptr> {
+    let object = Obj::Abs(body);
     return self.put(object);
   }
 
   /// Creates a new arrow.
-  pub fn new_arrow(&mut self, body: Pointer) -> Result<Pointer> {
-    let object = Object::Arrow(body);
+  pub fn new_arr(&mut self, body: Ptr) -> Result<Ptr> {
+    let object = Obj::Arr(body);
     return self.put(object);
   }
 
-  /// Creates a new sequence.
-  pub fn new_sequence(
-    &mut self,
-    head: Pointer,
-    tail: Pointer) -> Result<Pointer> {
-    let object = Object::Sequence(head, tail);
+  /// Creates a new catenation.
+  pub fn new_cat(&mut self, fst: Ptr, snd: Ptr) -> Result<Ptr> {
+    let object = Obj::Cat(fst, snd);
     return self.put(object);
   }
 
-  /// Predicates the id object.
-  pub fn is_id(&self, pointer: Pointer) -> Result<bool> {
+  /// Predicates the nil object.
+  pub fn is_nil(&self, pointer: Ptr) -> Result<bool> {
     let object = self.get_ref(pointer)?;
-    return Ok(object.is_id());
+    return Ok(object.is_nil());
   }
 
   /// Predicates functions.
-  pub fn is_function(&self, pointer: Pointer) -> Result<bool> {
+  pub fn is_fun(&self, pointer: Ptr) -> Result<bool> {
     let object = self.get_ref(pointer)?;
-    return Ok(object.is_function());
+    return Ok(object.is_fun());
   }
 
   /// Predicates propositions.
-  pub fn is_prop(&self, pointer: Pointer) -> Result<bool> {
+  pub fn is_pro(&self, pointer: Ptr) -> Result<bool> {
     let object = self.get_ref(pointer)?;
-    return Ok(object.is_prop());
+    return Ok(object.is_pro());
   }
 
   /// Predicates propositions.
-  pub fn is_real(&self, pointer: Pointer) -> Result<bool> {
-    let object = self.get_prop_ref(pointer)?;
-    return Ok(object.is_real());
+  pub fn is_nump(&self, pointer: Ptr) -> Result<bool> {
+    let object = self.get_pro_ref(pointer)?;
+    return Ok(object.is_num());
   }
 
-  pub fn is_type(&self, pointer: Pointer) -> Result<bool> {
-    let object = self.get_prop_ref(pointer)?;
-    return Ok(object.is_type());
+  pub fn is_setp(&self, pointer: Ptr) -> Result<bool> {
+    let object = self.get_pro_ref(pointer)?;
+    return Ok(object.is_set());
   }
 
-  pub fn is_forall(&self, pointer: Pointer) -> Result<bool> {
-    let object = self.get_prop_ref(pointer)?;
-    return Ok(object.is_forall());
+  pub fn is_allp(&self, pointer: Ptr) -> Result<bool> {
+    let object = self.get_pro_ref(pointer)?;
+    return Ok(object.is_all());
   }
 
   /// Predicates numbers.
-  pub fn is_number(&self, pointer: Pointer) -> Result<bool> {
+  pub fn is_num(&self, pointer: Ptr) -> Result<bool> {
     let object = self.get_ref(pointer)?;
-    return Ok(object.is_number());
+    return Ok(object.is_num());
   }
 
-  /// Predicates words.
-  pub fn is_word(&self, pointer: Pointer) -> Result<bool> {
+  /// Predicates symbols.
+  pub fn is_sym(&self, pointer: Ptr) -> Result<bool> {
     let object = self.get_ref(pointer)?;
-    return Ok(object.is_word());
+    return Ok(object.is_sym());
   }
 
-  /// Predicates blocks.
-  pub fn is_block(&self, pointer: Pointer) -> Result<bool> {
+  /// Predicates abstractions.
+  pub fn is_abs(&self, pointer: Ptr) -> Result<bool> {
     let object = self.get_ref(pointer)?;
-    return Ok(object.is_block());
+    return Ok(object.is_abs());
   }
 
   /// Predicates arrows.
-  pub fn is_arrow(&self, pointer: Pointer) -> Result<bool> {
+  pub fn is_arr(&self, pointer: Ptr) -> Result<bool> {
     let object = self.get_ref(pointer)?;
-    return Ok(object.is_arrow());
+    return Ok(object.is_arr());
   }
 
-  /// Predicates sequences.
-  pub fn is_sequence(&self, pointer: Pointer) -> Result<bool> {
+  /// Predicates catenations.
+  pub fn is_cat(&self, pointer: Ptr) -> Result<bool> {
     match self.get_ref(pointer)? {
-      &Object::Sequence(_, _) => {
+      &Obj::Cat(_, _) => {
         return Ok(true);
       }
       _ => {
@@ -305,9 +304,9 @@ impl Heap {
   }
 
   /// Get the value of a number.
-  pub fn get_number(&self, pointer: Pointer) -> Result<Number> {
+  pub fn get_num(&self, pointer: Ptr) -> Result<Num> {
     match self.get_ref(pointer)? {
-      &Object::Number(value) => {
+      &Obj::Num(value) => {
         return Ok(value);
       }
       _ => {
@@ -316,9 +315,9 @@ impl Heap {
     }
   }
 
-  pub fn get_function(&self, pointer: Pointer) -> Result<Function> {
+  pub fn get_fun(&self, pointer: Ptr) -> Result<Fun> {
     match self.get_ref(pointer)? {
-      &Object::Function(ref value) => {
+      &Obj::Fun(ref value) => {
         return Ok(*value);
       }
       _ => {
@@ -327,9 +326,9 @@ impl Heap {
     }
   }
 
-  pub fn get_type_body(&self, pointer: Pointer) -> Result<Pointer> {
-    match self.get_prop_ref(pointer)? {
-      &Prop::Type(body) => {
+  pub fn get_setp_body(&self, pointer: Ptr) -> Result<Ptr> {
+    match self.get_pro_ref(pointer)? {
+      &Pro::Set(body) => {
         return Ok(body);
       }
       _ => {
@@ -338,9 +337,9 @@ impl Heap {
     }
   }
 
-  pub fn get_real_body(&self, pointer: Pointer) -> Result<Pointer> {
-    match self.get_prop_ref(pointer)? {
-      &Prop::Real(body) => {
+  pub fn get_nump_body(&self, pointer: Ptr) -> Result<Ptr> {
+    match self.get_pro_ref(pointer)? {
+      &Pro::Num(body) => {
         return Ok(body);
       }
       _ => {
@@ -349,9 +348,9 @@ impl Heap {
     }
   }
 
-  pub fn get_forall_fst(&self, pointer: Pointer) -> Result<Pointer> {
-    match self.get_prop_ref(pointer)? {
-      &Prop::Forall(fst, _) => {
+  pub fn get_allp_fst(&self, pointer: Ptr) -> Result<Ptr> {
+    match self.get_pro_ref(pointer)? {
+      &Pro::All(fst, _) => {
         return Ok(fst);
       }
       _ => {
@@ -360,9 +359,9 @@ impl Heap {
     }
   }
 
-  pub fn get_forall_snd(&self, pointer: Pointer) -> Result<Pointer> {
-    match self.get_prop_ref(pointer)? {
-      &Prop::Forall(_, snd) => {
+  pub fn get_allp_snd(&self, pointer: Ptr) -> Result<Ptr> {
+    match self.get_pro_ref(pointer)? {
+      &Pro::All(_, snd) => {
         return Ok(snd);
       }
       _ => {
@@ -371,10 +370,10 @@ impl Heap {
     }
   }
 
-  /// Get the value of a word.
-  pub fn get_word(&self, pointer: Pointer) -> Result<Rc<str>> {
+  /// Get the value of a symbol.
+  pub fn get_sym(&self, pointer: Ptr) -> Result<Rc<str>> {
     match self.get_ref(pointer)? {
-      &Object::Word(ref value) => {
+      &Obj::Sym(ref value) => {
         return Ok(value.clone());
       }
       _ => {
@@ -383,10 +382,10 @@ impl Heap {
     }
   }
 
-  /// Get the body of a block.
-  pub fn get_block_body(&self, pointer: Pointer) -> Result<Pointer> {
+  /// Get the body of an abstraction.
+  pub fn get_abs_body(&self, pointer: Ptr) -> Result<Ptr> {
     match self.get_ref(pointer)? {
-      &Object::Block(ref body) => {
+      &Obj::Abs(ref body) => {
         return Ok(*body);
       }
       _ => {
@@ -396,9 +395,9 @@ impl Heap {
   }
 
   /// Get the body of an arrow.
-  pub fn get_arrow_body(&self, pointer: Pointer) -> Result<Pointer> {
+  pub fn get_arr_body(&self, pointer: Ptr) -> Result<Ptr> {
     match self.get_ref(pointer)? {
-      &Object::Arrow(ref body) => {
+      &Obj::Arr(ref body) => {
         return Ok(*body);
       }
       _ => {
@@ -407,11 +406,11 @@ impl Heap {
     }
   }
 
-  /// Get the first element of a sequence.
-  pub fn get_sequence_head(&self, pointer: Pointer) -> Result<Pointer> {
+  /// Get the first element of a catenation.
+  pub fn get_cat_fst(&self, pointer: Ptr) -> Result<Ptr> {
     match self.get_ref(pointer)? {
-      &Object::Sequence(ref head, _) => {
-        return Ok(*head);
+      &Obj::Cat(ref fst, _) => {
+        return Ok(*fst);
       }
       _ => {
         return Err(Error::Tag);
@@ -419,11 +418,11 @@ impl Heap {
     }
   }
 
-  /// Get the second element of a sequence.
-  pub fn get_sequence_tail(&self, pointer: Pointer) -> Result<Pointer> {
+  /// Get the second element of a cat.
+  pub fn get_cat_snd(&self, pointer: Ptr) -> Result<Ptr> {
     match self.get_ref(pointer)? {
-      &Object::Sequence(_, ref tail) => {
-        return Ok(*tail);
+      &Obj::Cat(_, ref snd) => {
+        return Ok(*snd);
       }
       _ => {
         return Err(Error::Tag);
@@ -431,7 +430,7 @@ impl Heap {
     }
   }
 
-  pub fn mark(&mut self, root: Pointer) -> Result<()> {
+  pub fn mark(&mut self, root: Ptr) -> Result<()> {
     match &mut self.nodes[root.index] {
       &mut Some(ref mut node) => {
         if node.generation != root.generation {
@@ -439,29 +438,29 @@ impl Heap {
         }
         node.is_visible = true;
         match &node.object {
-          &Object::Block(body) => {
+          &Obj::Abs(body) => {
             return self.mark(body);
           }
-          &Object::Arrow(body) => {
+          &Obj::Arr(body) => {
             return self.mark(body);
           }
-          &Object::Prop(ref value) => {
+          &Obj::Pro(ref value) => {
             match value {
-              &Prop::Type(body) => {
+              &Pro::Set(body) => {
                 return self.mark(body);
               }
-              &Prop::Real(body) => {
+              &Pro::Num(body) => {
                 return self.mark(body);
               }
-              &Prop::Forall(fst, snd) => {
+              &Pro::All(fst, snd) => {
                 self.mark(fst)?;
                 return self.mark(snd);
               }
             }
           }
-          &Object::Sequence(head, tail) => {
-            self.mark(head)?;
-            return self.mark(tail);
+          &Obj::Cat(fst, snd) => {
+            self.mark(fst)?;
+            return self.mark(snd);
           }
           _ => {
             return Ok(());
@@ -499,7 +498,7 @@ impl Heap {
     return Ok(());
   }
 
-  pub fn parse(&mut self, src: &str) -> Result<Pointer> {
+  pub fn parse(&mut self, src: &str) -> Result<Ptr> {
     let mut build = Vec::new();
     let mut stack = Vec::new();
     let mut brackets = Vec::new();
@@ -520,11 +519,11 @@ impl Heap {
             return Err(Error::Syntax);
           }
           let prev = stack.pop().ok_or(Error::Syntax)?;
-          let mut xs = self.new_id()?;
+          let mut xs = self.new_nil()?;
           for object in build.iter().rev() {
-            xs = self.new_sequence(*object, xs)?;
+            xs = self.new_cat(*object, xs)?;
           }
-          xs = self.new_arrow(xs)?;
+          xs = self.new_arr(xs)?;
           build = prev;
           build.push(xs);
         }
@@ -539,147 +538,147 @@ impl Heap {
             return Err(Error::Syntax);
           }
           let prev = stack.pop().ok_or(Error::Syntax)?;
-          let mut xs = self.new_id()?;
+          let mut xs = self.new_nil()?;
           for object in build.iter().rev() {
-            xs = self.new_sequence(*object, xs)?;
+            xs = self.new_cat(*object, xs)?;
           }
-          xs = self.new_block(xs)?;
+          xs = self.new_abs(xs)?;
           build = prev;
           build.push(xs);
         }
         "%app" => {
-          let func = Function::App;
-          let object = self.new_function(func)?;
+          let fun = Fun::App;
+          let object = self.new_fun(fun)?;
           build.push(object);
         }
         "%box" => {
-          let func = Function::Box;
-          let object = self.new_function(func)?;
+          let fun = Fun::Box;
+          let object = self.new_fun(fun)?;
           build.push(object);
         }
         "%cat" => {
-          let func = Function::Cat;
-          let object = self.new_function(func)?;
+          let fun = Fun::Cat;
+          let object = self.new_fun(fun)?;
           build.push(object);
         }
         "%cpy" => {
-          let func = Function::Copy;
-          let object = self.new_function(func)?;
+          let fun = Fun::Cpy;
+          let object = self.new_fun(fun)?;
           build.push(object);
         }
         "%drp" => {
-          let func = Function::Drop;
-          let object = self.new_function(func)?;
+          let fun = Fun::Drp;
+          let object = self.new_fun(fun)?;
           build.push(object);
         }
         "%swp" => {
-          let func = Function::Swap;
-          let object = self.new_function(func)?;
+          let fun = Fun::Swp;
+          let object = self.new_fun(fun)?;
           build.push(object);
         }
         "%fix" => {
-          let func = Function::Fix;
-          let object = self.new_function(func)?;
+          let fun = Fun::Fix;
+          let object = self.new_fun(fun)?;
           build.push(object);
         }
         "%run" => {
-          let func = Function::Run;
-          let object = self.new_function(func)?;
+          let fun = Fun::Run;
+          let object = self.new_fun(fun)?;
           build.push(object);
         }
-        "%fix" => {
-          let func = Function::Shift;
-          let object = self.new_function(func)?;
+        "%jmp" => {
+          let fun = Fun::Jmp;
+          let object = self.new_fun(fun)?;
           build.push(object);
         }
         "%num" => {
-          let func = Function::Real;
-          let object = self.new_function(func)?;
+          let fun = Fun::Num;
+          let object = self.new_fun(fun)?;
           build.push(object);
         }
         "%set" => {
-          let func = Function::Type;
-          let object = self.new_function(func)?;
+          let fun = Fun::Set;
+          let object = self.new_fun(fun)?;
           build.push(object);
         }
         "%all" => {
-          let func = Function::Forall;
-          let object = self.new_function(func)?;
+          let fun = Fun::All;
+          let object = self.new_fun(fun)?;
           build.push(object);
         }
         "%min" => {
-          let func = Function::Min;
-          let object = self.new_function(func)?;
+          let fun = Fun::Min;
+          let object = self.new_fun(fun)?;
           build.push(object);
         }
         "%max" => {
-          let func = Function::Max;
-          let object = self.new_function(func)?;
+          let fun = Fun::Max;
+          let object = self.new_fun(fun)?;
           build.push(object);
         }
         "%add" => {
-          let func = Function::Add;
-          let object = self.new_function(func)?;
+          let fun = Fun::Add;
+          let object = self.new_fun(fun)?;
           build.push(object);
         }
         "%neg" => {
-          let func = Function::Negate;
-          let object = self.new_function(func)?;
+          let fun = Fun::Neg;
+          let object = self.new_fun(fun)?;
           build.push(object);
         }
         "%mul" => {
-          let func = Function::Multiply;
-          let object = self.new_function(func)?;
+          let fun = Fun::Mul;
+          let object = self.new_fun(fun)?;
           build.push(object);
         }
         "%inv" => {
-          let func = Function::Invert;
-          let object = self.new_function(func)?;
+          let fun = Fun::Inv;
+          let object = self.new_fun(fun)?;
           build.push(object);
         }
         "%exp" => {
-          let func = Function::Exp;
-          let object = self.new_function(func)?;
+          let fun = Fun::Exp;
+          let object = self.new_fun(fun)?;
           build.push(object);
         }
         "%log" => {
-          let func = Function::Log;
-          let object = self.new_function(func)?;
+          let fun = Fun::Log;
+          let object = self.new_fun(fun)?;
           build.push(object);
         }
         "%cos" => {
-          let func = Function::Cos;
-          let object = self.new_function(func)?;
+          let fun = Fun::Cos;
+          let object = self.new_fun(fun)?;
           build.push(object);
         }
         "%sin" => {
-          let func = Function::Sin;
-          let object = self.new_function(func)?;
+          let fun = Fun::Sin;
+          let object = self.new_fun(fun)?;
           build.push(object);
         }
         "%abs" => {
-          let func = Function::Abs;
-          let object = self.new_function(func)?;
+          let fun = Fun::Abs;
+          let object = self.new_fun(fun)?;
           build.push(object);
         }
         "%cel" => {
-          let func = Function::Ceil;
-          let object = self.new_function(func)?;
+          let fun = Fun::Cel;
+          let object = self.new_fun(fun)?;
           build.push(object);
         }
         "%flr" => {
-          let func = Function::Floor;
-          let object = self.new_function(func)?;
+          let fun = Fun::Flr;
+          let object = self.new_fun(fun)?;
           build.push(object);
         }
         _ => {
-          match word.parse::<Number>() {
+          match word.parse::<Num>() {
             Ok(value) => {
-              let object = self.new_number(value)?;
+              let object = self.new_num(value)?;
               build.push(object);
             }
             Err(error) => {
-              let object = self.new_word(word.into())?;
+              let object = self.new_sym(word.into())?;
               build.push(object);
             }
           }
@@ -689,108 +688,108 @@ impl Heap {
     if !stack.is_empty() {
       return Err(Error::Syntax);
     }
-    let mut xs = self.new_id()?;
+    let mut xs = self.new_nil()?;
     for object in build.iter().rev() {
-      xs = self.new_sequence(*object, xs)?;
+      xs = self.new_cat(*object, xs)?;
     }
     return Ok(xs);
   }
 
-  pub fn quote(&self, root: Pointer, buf: &mut String) -> Result<()> {
+  pub fn quote(&self, root: Ptr, buf: &mut String) -> Result<()> {
     match self.get_ref(root)? {
-      &Object::Id => {
+      &Obj::Nil => {
         //
       }
-      &Object::Function(ref value) => {
+      &Obj::Fun(ref value) => {
         match value {
-          Function::App => {
+          Fun::App => {
             buf.push_str("%app");
           }
-          Function::Box => {
+          Fun::Box => {
             buf.push_str("%box");
           }
-          Function::Cat => {
+          Fun::Cat => {
             buf.push_str("%cat");
           }
-          Function::Copy => {
+          Fun::Cpy => {
             buf.push_str("%cpy");
           }
-          Function::Drop => {
+          Fun::Drp => {
             buf.push_str("%drp");
           }
-          Function::Swap => {
+          Fun::Swp => {
             buf.push_str("%swp");
           }
-          Function::Fix => {
+          Fun::Fix => {
             buf.push_str("%fix");
           }
-          Function::Run => {
+          Fun::Run => {
             buf.push_str("%run");
           }
-          Function::Shift => {
+          Fun::Jmp => {
             buf.push_str("%jmp");
           }
-          Function::Real => {
+          Fun::Num => {
             buf.push_str("%num");
           }
-          Function::Type => {
-            buf.push_str("%typ");
+          Fun::Set => {
+            buf.push_str("%set");
           }
-          Function::Forall => {
+          Fun::All => {
             buf.push_str("%all");
           }
-          Function::Min => {
+          Fun::Min => {
             buf.push_str("%min");
           }
-          Function::Max => {
+          Fun::Max => {
             buf.push_str("%max");
           }
-          Function::Add => {
+          Fun::Add => {
             buf.push_str("%add");
           }
-          Function::Negate => {
+          Fun::Neg => {
             buf.push_str("%neg");
           }
-          Function::Multiply => {
+          Fun::Mul => {
             buf.push_str("%mul");
           }
-          Function::Invert => {
+          Fun::Inv => {
             buf.push_str("%inv");
           }
-          Function::Exp => {
+          Fun::Exp => {
             buf.push_str("%exp");
           }
-          Function::Log => {
+          Fun::Log => {
             buf.push_str("%log");
           }
-          Function::Cos => {
+          Fun::Cos => {
             buf.push_str("%cos");
           }
-          Function::Sin => {
+          Fun::Sin => {
             buf.push_str("%sin");
           }
-          Function::Abs => {
+          Fun::Abs => {
             buf.push_str("%abs");
           }
-          Function::Ceil => {
+          Fun::Cel => {
             buf.push_str("%cel");
           }
-          Function::Floor => {
+          Fun::Flr => {
             buf.push_str("%flr");
           }
         }
       }
-      &Object::Prop(ref value) => {
+      &Obj::Pro(ref value) => {
         match value {
-          &Prop::Real(body) => {
-            self.quote(body, buf);
+          &Pro::Num(body) => {
+            self.quote(body, buf)?;
             buf.push_str(" %num");
           }
-          &Prop::Type(body) => {
+          &Pro::Set(body) => {
             self.quote(body, buf)?;
-            buf.push_str(" %typ");
+            buf.push_str(" %set");
           }
-          &Prop::Forall(fst, snd) => {
+          &Pro::All(fst, snd) => {
             self.quote(fst, buf)?;
             buf.push(' ');
             self.quote(snd, buf)?;
@@ -798,48 +797,48 @@ impl Heap {
           }
         }
       }
-      &Object::Number(value) => {
+      &Obj::Num(value) => {
         let string = value.to_string();
         buf.push_str(&string);
       }
-      &Object::Word(ref value) => {
+      &Obj::Sym(ref value) => {
         buf.push_str(&value);
       }
-      &Object::Block(body) => {
+      &Obj::Abs(body) => {
         buf.push('[');
         self.quote(body, buf)?;
         buf.push(']');
       }
-      &Object::Arrow(body) => {
+      &Obj::Arr(body) => {
         buf.push_str("{ ");
         self.quote(body, buf)?;
         buf.push_str(" }");
       }
-      &Object::Sequence(head, tail) => {
-        self.quote(head, buf)?;
-        if !self.is_id(tail)? {
+      &Obj::Cat(fst, snd) => {
+        self.quote(fst, buf)?;
+        if !self.is_nil(snd)? {
           buf.push(' ');
-          self.quote(tail, buf)?;
+          self.quote(snd, buf)?;
         }
       }
     }
     return Ok(());
   }
 
-  fn put(&mut self, object: Object) -> Result<Pointer> {
+  fn put(&mut self, object: Obj) -> Result<Ptr> {
     for (index, maybe_node) in self.nodes.iter_mut().enumerate() {
       if maybe_node.is_some() {
         continue;
       }
       let node = Node::new(object, self.generation);
-      let pointer = Pointer::new(index, self.generation);
+      let pointer = Ptr::new(index, self.generation);
       *maybe_node = Some(node);
       return Ok(pointer);
     }
     return Err(Error::Space);
   }
 
-  fn get_ref(&self, pointer: Pointer) -> Result<&Object> {
+  fn get_ref(&self, pointer: Ptr) -> Result<&Obj> {
     match &self.nodes[pointer.index] {
       &Some(ref node) => {
         if node.generation == pointer.generation {
@@ -853,9 +852,9 @@ impl Heap {
     }
   }
 
-  fn get_prop_ref(&self, pointer: Pointer) -> Result<&Prop> {
+  fn get_pro_ref(&self, pointer: Ptr) -> Result<&Pro> {
     match self.get_ref(pointer)? {
-      &Object::Prop(ref value) => {
+      &Obj::Pro(ref value) => {
         return Ok(value);
       }
       _ => {

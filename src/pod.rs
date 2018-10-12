@@ -17,41 +17,65 @@
 
 use super::*;
 
-pub struct Container {
-  heap: heap::Heap,
-  dictionary: Dictionary,
+fn iter_nodes<'a, F>(
+  node: &'a comrak::nodes::AstNode<'a>,
+  func: &mut F) where F: FnMut(&'a comrak::nodes::AstNode<'a>) {
+  func(node);
+  for child in node.children() {
+    iter_nodes(child, func);
+  }
+}
+
+fn extract_code_blocks(src: &str) -> String {
+  let arena = comrak::Arena::new();
+  let options = comrak::ComrakOptions::default();
+  let root = comrak::parse_document(&arena, src, &options);
+  let mut blocks: Vec<String> = Vec::new();
+  iter_nodes(root, &mut |node| {
+    if let &comrak::nodes::NodeValue::CodeBlock(ref node) = &node.data.borrow().value {
+      if "eq" == std::str::from_utf8(&node.info).unwrap() {
+        let block = std::str::from_utf8(&node.literal).unwrap().to_string();
+        blocks.push(block);
+      }
+    }
+  });
+  return blocks.join("\n");
+}
+
+pub struct Pod {
+  mem: mem::Mem,
+  tab: mem::Tab,
   insert_pattern: regex::Regex,
   delete_pattern: regex::Regex,
 }
 
 const word_pattern: &'static str = r"[a-z0-9+\-*/<>!?=@.$;]+";
 
-impl Container {
-  fn with_heap(heap: heap::Heap) -> Self {
+impl Pod {
+  fn with_mem(mem: mem::Mem) -> Self {
     let src = format!(r"^:({})\s+(.*)", word_pattern);
     let insert_pattern = regex::Regex::new(&src).expect("insert");
     let src = format!(r"^~({})\s*", word_pattern);
     let delete_pattern = regex::Regex::new(&src).expect("delete");
-    Container {
-      heap: heap,
-      dictionary: HashMap::new(),
+    Pod {
+      mem: mem,
+      tab: HashMap::new(),
       insert_pattern: insert_pattern,
       delete_pattern: delete_pattern,
     }
   }
 
-  pub fn from_image(
-    path: &str,
+  pub fn from_string(
+    src: &str,
     space_quota: usize,
     time_quota: u64) -> Result<Self> {
-    let contents = std::fs::read_to_string(path).or(Err(Error::Bug))?;
-    let code = feed::extract_code_blocks(&contents);
-    let heap = heap::Heap::with_capacity(space_quota);
-    let mut container = Container::with_heap(heap);
+    let code = extract_code_blocks(src);
+    let mem = mem::Mem::with_capacity(space_quota);
+    let mut pod = Pod::with_mem(mem);
     for line in code.lines() {
-      container.eval(line, time_quota)?;
+      pod.eval(line, time_quota)?;
     }
-    return Ok(container);
+    return Ok(pod);
   }
 
   pub fn eval(&mut self, src: &str, time_quota: u64) -> Result<String> {
@@ -59,43 +83,43 @@ impl Container {
     if let Some(data) = self.insert_pattern.captures(src) {
       let key: Rc<str> = data.get(1).expect("key").as_str().into();
       let value_src = data.get(2).expect("value").as_str();
-      let value = self.heap.parse(value_src)?;
-      let value = reduce::reduce(
-        value, &mut self.heap, &self.dictionary, time_quota)?;
-      self.dictionary.insert(key.clone(), value);
+      let value = self.mem.parse(value_src)?;
+      let value = run::reduce(
+        value, &mut self.mem, &self.tab, time_quota)?;
+      self.tab.insert(key.clone(), value);
       dst.push(':');
       dst.push_str(&key);
       dst.push(' ');
-      self.heap.quote(value, &mut dst)?;
+      self.mem.quote(value, &mut dst)?;
     } else if let Some(data) = self.delete_pattern.captures(src) {
       let key: Rc<str> = data.get(1).expect("key").as_str().into();
-      self.dictionary.remove(&key);
+      self.tab.remove(&key);
       dst.push('~');
       dst.push_str(&key);
     } else {
-      let source = self.heap.parse(src)?;
-      let target = reduce::reduce(
-        source, &mut self.heap, &self.dictionary, time_quota)?;
-      self.heap.quote(target, &mut dst)?;
+      let source = self.mem.parse(src)?;
+      let target = run::reduce(
+        source, &mut self.mem, &self.tab, time_quota)?;
+      self.mem.quote(target, &mut dst)?;
     }
-    for pointer in self.dictionary.values() {
-      self.heap.mark(*pointer)?;
+    for pointer in self.tab.values() {
+      self.mem.mark(*pointer)?;
     }
-    self.heap.sweep()?;
+    self.mem.sweep()?;
     return Ok(dst);
   }
 
   pub fn to_string(&self) -> Result<String> {
     let mut target = String::new();
-    let mut keys: Vec<Rc<str>> = self.dictionary.keys()
+    let mut keys: Vec<Rc<str>> = self.tab.keys()
       .map(|x| x.clone()).collect();
     keys.sort();
     for key in keys.iter() {
-      let value = self.dictionary.get(key).unwrap();
+      let value = self.tab.get(key).unwrap();
       target.push(':');
       target.push_str(&key);
       target.push(' ');
-      self.heap.quote(*value, &mut target);
+      self.mem.quote(*value, &mut target)?;
       target.push('\n');
     }
     return Ok(target);
