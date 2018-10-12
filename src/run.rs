@@ -107,10 +107,10 @@ impl Thread {
         }
         let mut previous = self.stack.pop().ok_or(Error::Bug)?;
         if self.frame.is_thunked() {
-          let arrow_body = self.get_environment(mem)?;
-          let arrow = mem.new_arr(arrow_body)?;
+          let cmd_body = self.get_environment(mem)?;
+          let cmd = mem.new_cmd(cmd_body)?;
           self.frame = previous;
-          self.thunk(arrow);
+          self.thunk(cmd);
         } else {
           previous.env.append(&mut self.frame.env);
           self.frame = previous;
@@ -181,45 +181,45 @@ impl Thread {
       self.push_environment(code);
     } else if mem.is_pro(code)? {
       self.push_environment(code);
-    } else if mem.is_abs(code)? {
-      self.push_environment(code);
-    } else if mem.is_arr(code)? {
-      let body = mem.get_arr_body(code)?;
-      self.push_frame(body);
     } else if mem.is_fun(code)? {
-      match mem.get_fun(code)? {
-        Fun::App => {
+      self.push_environment(code);
+    } else if mem.is_cmd(code)? {
+      let body = mem.get_cmd_body(code)?;
+      self.push_frame(body);
+    } else if mem.is_bit(code)? {
+      match mem.get_bit(code)? {
+        Bit::App => {
           if !self.is_monadic() {
             self.thunk(code);
             return Ok(());
           }
           let source = self.pop_environment()?;
-          let target = mem.get_abs_body(source)?;
+          let target = mem.get_fun_body(source)?;
           self.push_continuation_front(target);
         }
-        Fun::Box => {
+        Bit::Box => {
           if !self.is_monadic() {
             self.thunk(code);
             return Ok(());
           }
           let source = self.pop_environment()?;
-          let target = mem.new_abs(source)?;
+          let target = mem.new_fun(source)?;
           self.push_environment(target);
         }
-        Fun::Cat => {
+        Bit::Cat => {
           if !self.is_dyadic() {
             self.thunk(code);
             return Ok(());
           }
           let rhs = self.pop_environment()?;
           let lhs = self.pop_environment()?;
-          let rhs_body = mem.get_abs_body(rhs)?;
-          let lhs_body = mem.get_abs_body(lhs)?;
+          let rhs_body = mem.get_fun_body(rhs)?;
+          let lhs_body = mem.get_fun_body(lhs)?;
           let target_body = mem.new_cat(lhs_body, rhs_body)?;
-          let target = mem.new_abs(target_body)?;
+          let target = mem.new_fun(target_body)?;
           self.push_environment(target);
         }
-        Fun::Cpy => {
+        Bit::Cpy => {
           if !self.is_monadic() {
             self.thunk(code);
             return Ok(());
@@ -227,14 +227,14 @@ impl Thread {
           let source = self.peek_environment()?;
           self.push_environment(source);
         }
-        Fun::Drp => {
+        Bit::Drp => {
           if !self.is_monadic() {
             self.thunk(code);
             return Ok(());
           }
           self.pop_environment()?;
         }
-        Fun::Swp => {
+        Bit::Swp => {
           if !self.is_dyadic() {
             self.thunk(code);
             return Ok(());
@@ -244,44 +244,44 @@ impl Thread {
           self.push_environment(fst);
           self.push_environment(snd);
         }
-        Fun::Fix => {
+        Bit::Fix => {
           if !self.is_monadic() {
             self.thunk(code);
             return Ok(());
           }
           let source = self.pop_environment()?;
-          let source_body = mem.get_abs_body(source)?;
+          let source_body = mem.get_fun_body(source)?;
           let fixed = mem.new_cat(source, code)?;
           let target_body = mem.new_cat(fixed, source_body)?;
-          let target = mem.new_abs(target_body)?;
+          let target = mem.new_fun(target_body)?;
           self.push_environment(target);
         }
-        Fun::Run => {
+        Bit::Run => {
           if !self.is_monadic() {
             self.thunk(code);
             return Ok(());
           }
           let source = self.pop_environment()?;
-          let source_body = mem.get_abs_body(source)?;
-          let target = mem.new_arr(source_body)?;
+          let source_body = mem.get_fun_body(source)?;
+          let target = mem.new_cmd(source_body)?;
           self.push_continuation_front(target);
         }
-        Fun::Jmp => {
+        Bit::Jmp => {
           if !self.is_monadic() || self.stack.is_empty() {
             self.thunk(code);
             return Ok(());
           }
           let callback = self.pop_environment()?;
-          let callback_body = mem.get_abs_body(callback)?;
+          let callback_body = mem.get_fun_body(callback)?;
           let env_body = self.get_environment(mem)?;
           let con_body = self.get_continuation(mem)?;
-          let environment = mem.new_abs(env_body)?;
-          let continuation = mem.new_abs(con_body)?;
+          let environment = mem.new_fun(env_body)?;
+          let continuation = mem.new_fun(con_body)?;
           self.push_environment(environment);
           self.push_environment(continuation);
           self.push_continuation_front(callback_body);
         }
-        Fun::Num => {
+        Bit::Num => {
           if !self.is_monadic() {
             self.thunk(code);
             return Ok(());
@@ -290,7 +290,7 @@ impl Thread {
           let target = mem.new_nump(source)?;
           self.push_environment(target);
         }
-        Fun::Set => {
+        Bit::Set => {
           if !self.is_monadic() {
             self.thunk(code);
             return Ok(());
@@ -299,7 +299,7 @@ impl Thread {
           let target = mem.new_setp(source)?;
           self.push_environment(target);
         }
-        Fun::All => {
+        Bit::All => {
           if !self.is_dyadic() {
             self.thunk(code);
             return Ok(());
@@ -309,7 +309,7 @@ impl Thread {
           let target = mem.new_allp(fst, snd)?;
           self.push_environment(target);
         }
-        Fun::Min => {
+        Bit::Min => {
           if !self.is_dyadic() {
             self.thunk(code);
             return Ok(());
@@ -322,7 +322,7 @@ impl Thread {
           let target = mem.new_num(target_value)?;
           self.push_environment(target);
         }
-        Fun::Max => {
+        Bit::Max => {
           if !self.is_dyadic() {
             self.thunk(code);
             return Ok(());
@@ -335,7 +335,7 @@ impl Thread {
           let target = mem.new_num(target_value)?;
           self.push_environment(target);
         }
-        Fun::Add => {
+        Bit::Add => {
           if !self.is_dyadic() {
             self.thunk(code);
             return Ok(());
@@ -348,7 +348,7 @@ impl Thread {
           let target = mem.new_num(target_value)?;
           self.push_environment(target);
         }
-        Fun::Neg => {
+        Bit::Neg => {
           if !self.is_monadic() {
             self.thunk(code);
             return Ok(());
@@ -359,7 +359,7 @@ impl Thread {
           let target = mem.new_num(target_value)?;
           self.push_environment(target);
         }
-        Fun::Mul => {
+        Bit::Mul => {
           if !self.is_dyadic() {
             self.thunk(code);
             return Ok(());
@@ -372,7 +372,7 @@ impl Thread {
           let target = mem.new_num(target_value)?;
           self.push_environment(target);
         }
-        Fun::Inv => {
+        Bit::Inv => {
           if !self.is_monadic() {
             self.thunk(code);
             return Ok(());
@@ -388,7 +388,7 @@ impl Thread {
           let target = mem.new_num(target_value)?;
           self.push_environment(target);
         }
-        Fun::Exp => {
+        Bit::Exp => {
           if !self.is_monadic() {
             self.thunk(code);
             return Ok(());
@@ -399,7 +399,7 @@ impl Thread {
           let target = mem.new_num(target_value)?;
           self.push_environment(target);
         }
-        Fun::Log => {
+        Bit::Log => {
           if !self.is_monadic() {
             self.thunk(code);
             return Ok(());
@@ -410,7 +410,7 @@ impl Thread {
           let target = mem.new_num(target_value)?;
           self.push_environment(target);
         }
-        Fun::Cos => {
+        Bit::Cos => {
           if !self.is_monadic() {
             self.thunk(code);
             return Ok(());
@@ -421,7 +421,7 @@ impl Thread {
           let target = mem.new_num(target_value)?;
           self.push_environment(target);
         }
-        Fun::Sin => {
+        Bit::Sin => {
           if !self.is_monadic() {
             self.thunk(code);
             return Ok(());
@@ -432,7 +432,7 @@ impl Thread {
           let target = mem.new_num(target_value)?;
           self.push_environment(target);
         }
-        Fun::Abs => {
+        Bit::Abs => {
           if !self.is_monadic() {
             self.thunk(code);
             return Ok(());
@@ -443,7 +443,7 @@ impl Thread {
           let target = mem.new_num(target_value)?;
           self.push_environment(target);
         }
-        Fun::Cel => {
+        Bit::Cel => {
           if !self.is_monadic() {
             self.thunk(code);
             return Ok(());
@@ -454,7 +454,7 @@ impl Thread {
           let target = mem.new_num(target_value)?;
           self.push_environment(target);
         }
-        Fun::Flr => {
+        Bit::Flr => {
           if !self.is_monadic() {
             self.thunk(code);
             return Ok(());

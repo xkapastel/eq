@@ -38,8 +38,9 @@ pub type Result<T> = std::result::Result<T, Error>;
 
 pub type Num = f64;
 
+/// A Sundial bitcode.
 #[derive(Debug, Copy, Clone)]
-pub enum Fun {
+pub enum Bit {
   App,
   Box,
   Cat,

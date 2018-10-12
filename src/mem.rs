@@ -38,9 +38,9 @@ enum Obj {
   Nil,
   Num(Num),
   Sym(Rc<str>),
-  Fun(Fun),
-  Abs(Ptr),
-  Arr(Ptr),
+  Bit(Bit),
+  Fun(Ptr),
+  Cmd(Ptr),
   Cat(Ptr, Ptr),
   Pro(Pro),
 }
@@ -104,9 +104,9 @@ impl Obj {
     }
   }
 
-  fn is_fun(&self) -> bool {
+  fn is_bit(&self) -> bool {
     match self {
-      Obj::Fun(_) => true,
+      Obj::Bit(_) => true,
       _ => false,
     }
   }
@@ -132,16 +132,16 @@ impl Obj {
     }
   }
 
-  fn is_abs(&self) -> bool {
+  fn is_fun(&self) -> bool {
     match self {
-      Obj::Abs(_) => true,
+      Obj::Fun(_) => true,
       _ => false,
     }
   }
 
-  fn is_arr(&self) -> bool {
+  fn is_cmd(&self) -> bool {
     match self {
-      Obj::Arr(_) => true,
+      Obj::Cmd(_) => true,
       _ => false,
     }
   }
@@ -183,8 +183,8 @@ impl Mem {
     return self.put(object);
   }
 
-  pub fn new_fun(&mut self, func: Fun) -> Result<Ptr> {
-    let object = Obj::Fun(func);
+  pub fn new_bit(&mut self, bit: Bit) -> Result<Ptr> {
+    let object = Obj::Bit(bit);
     return self.put(object);
   }
 
@@ -215,15 +215,15 @@ impl Mem {
     return self.put(object);
   }
 
-  /// Creates a new abstraction.
-  pub fn new_abs(&mut self, body: Ptr) -> Result<Ptr> {
-    let object = Obj::Abs(body);
+  /// Creates a new funtraction.
+  pub fn new_fun(&mut self, body: Ptr) -> Result<Ptr> {
+    let object = Obj::Fun(body);
     return self.put(object);
   }
 
-  /// Creates a new arrow.
-  pub fn new_arr(&mut self, body: Ptr) -> Result<Ptr> {
-    let object = Obj::Arr(body);
+  /// Creates a new cmdow.
+  pub fn new_cmd(&mut self, body: Ptr) -> Result<Ptr> {
+    let object = Obj::Cmd(body);
     return self.put(object);
   }
 
@@ -239,10 +239,10 @@ impl Mem {
     return Ok(object.is_nil());
   }
 
-  /// Predicates functions.
-  pub fn is_fun(&self, pointer: Ptr) -> Result<bool> {
+  /// Predicates bitcodes.
+  pub fn is_bit(&self, pointer: Ptr) -> Result<bool> {
     let object = self.get_ref(pointer)?;
-    return Ok(object.is_fun());
+    return Ok(object.is_bit());
   }
 
   /// Predicates propositions.
@@ -279,16 +279,16 @@ impl Mem {
     return Ok(object.is_sym());
   }
 
-  /// Predicates abstractions.
-  pub fn is_abs(&self, pointer: Ptr) -> Result<bool> {
+  /// Predicates funtractions.
+  pub fn is_fun(&self, pointer: Ptr) -> Result<bool> {
     let object = self.get_ref(pointer)?;
-    return Ok(object.is_abs());
+    return Ok(object.is_fun());
   }
 
-  /// Predicates arrows.
-  pub fn is_arr(&self, pointer: Ptr) -> Result<bool> {
+  /// Predicates cmdows.
+  pub fn is_cmd(&self, pointer: Ptr) -> Result<bool> {
     let object = self.get_ref(pointer)?;
-    return Ok(object.is_arr());
+    return Ok(object.is_cmd());
   }
 
   /// Predicates catenations.
@@ -315,9 +315,9 @@ impl Mem {
     }
   }
 
-  pub fn get_fun(&self, pointer: Ptr) -> Result<Fun> {
+  pub fn get_bit(&self, pointer: Ptr) -> Result<Bit> {
     match self.get_ref(pointer)? {
-      &Obj::Fun(ref value) => {
+      &Obj::Bit(ref value) => {
         return Ok(*value);
       }
       _ => {
@@ -382,10 +382,10 @@ impl Mem {
     }
   }
 
-  /// Get the body of an abstraction.
-  pub fn get_abs_body(&self, pointer: Ptr) -> Result<Ptr> {
+  /// Get the body of an funtraction.
+  pub fn get_fun_body(&self, pointer: Ptr) -> Result<Ptr> {
     match self.get_ref(pointer)? {
-      &Obj::Abs(ref body) => {
+      &Obj::Fun(ref body) => {
         return Ok(*body);
       }
       _ => {
@@ -394,10 +394,10 @@ impl Mem {
     }
   }
 
-  /// Get the body of an arrow.
-  pub fn get_arr_body(&self, pointer: Ptr) -> Result<Ptr> {
+  /// Get the body of an cmdow.
+  pub fn get_cmd_body(&self, pointer: Ptr) -> Result<Ptr> {
     match self.get_ref(pointer)? {
-      &Obj::Arr(ref body) => {
+      &Obj::Cmd(ref body) => {
         return Ok(*body);
       }
       _ => {
@@ -438,10 +438,10 @@ impl Mem {
         }
         node.is_visible = true;
         match &node.object {
-          &Obj::Abs(body) => {
+          &Obj::Fun(body) => {
             return self.mark(body);
           }
-          &Obj::Arr(body) => {
+          &Obj::Cmd(body) => {
             return self.mark(body);
           }
           &Obj::Pro(ref value) => {
@@ -523,7 +523,7 @@ impl Mem {
           for object in build.iter().rev() {
             xs = self.new_cat(*object, xs)?;
           }
-          xs = self.new_arr(xs)?;
+          xs = self.new_cmd(xs)?;
           build = prev;
           build.push(xs);
         }
@@ -542,133 +542,133 @@ impl Mem {
           for object in build.iter().rev() {
             xs = self.new_cat(*object, xs)?;
           }
-          xs = self.new_abs(xs)?;
+          xs = self.new_fun(xs)?;
           build = prev;
           build.push(xs);
         }
         "%app" => {
-          let fun = Fun::App;
-          let object = self.new_fun(fun)?;
+          let bit = Bit::App;
+          let object = self.new_bit(bit)?;
           build.push(object);
         }
         "%box" => {
-          let fun = Fun::Box;
-          let object = self.new_fun(fun)?;
+          let bit = Bit::Box;
+          let object = self.new_bit(bit)?;
           build.push(object);
         }
         "%cat" => {
-          let fun = Fun::Cat;
-          let object = self.new_fun(fun)?;
+          let bit = Bit::Cat;
+          let object = self.new_bit(bit)?;
           build.push(object);
         }
         "%cpy" => {
-          let fun = Fun::Cpy;
-          let object = self.new_fun(fun)?;
+          let bit = Bit::Cpy;
+          let object = self.new_bit(bit)?;
           build.push(object);
         }
         "%drp" => {
-          let fun = Fun::Drp;
-          let object = self.new_fun(fun)?;
+          let bit = Bit::Drp;
+          let object = self.new_bit(bit)?;
           build.push(object);
         }
         "%swp" => {
-          let fun = Fun::Swp;
-          let object = self.new_fun(fun)?;
+          let bit = Bit::Swp;
+          let object = self.new_bit(bit)?;
           build.push(object);
         }
         "%fix" => {
-          let fun = Fun::Fix;
-          let object = self.new_fun(fun)?;
+          let bit = Bit::Fix;
+          let object = self.new_bit(bit)?;
           build.push(object);
         }
         "%run" => {
-          let fun = Fun::Run;
-          let object = self.new_fun(fun)?;
+          let bit = Bit::Run;
+          let object = self.new_bit(bit)?;
           build.push(object);
         }
         "%jmp" => {
-          let fun = Fun::Jmp;
-          let object = self.new_fun(fun)?;
+          let bit = Bit::Jmp;
+          let object = self.new_bit(bit)?;
           build.push(object);
         }
         "%num" => {
-          let fun = Fun::Num;
-          let object = self.new_fun(fun)?;
+          let bit = Bit::Num;
+          let object = self.new_bit(bit)?;
           build.push(object);
         }
         "%set" => {
-          let fun = Fun::Set;
-          let object = self.new_fun(fun)?;
+          let bit = Bit::Set;
+          let object = self.new_bit(bit)?;
           build.push(object);
         }
         "%all" => {
-          let fun = Fun::All;
-          let object = self.new_fun(fun)?;
+          let bit = Bit::All;
+          let object = self.new_bit(bit)?;
           build.push(object);
         }
         "%min" => {
-          let fun = Fun::Min;
-          let object = self.new_fun(fun)?;
+          let bit = Bit::Min;
+          let object = self.new_bit(bit)?;
           build.push(object);
         }
         "%max" => {
-          let fun = Fun::Max;
-          let object = self.new_fun(fun)?;
+          let bit = Bit::Max;
+          let object = self.new_bit(bit)?;
           build.push(object);
         }
         "%add" => {
-          let fun = Fun::Add;
-          let object = self.new_fun(fun)?;
+          let bit = Bit::Add;
+          let object = self.new_bit(bit)?;
           build.push(object);
         }
         "%neg" => {
-          let fun = Fun::Neg;
-          let object = self.new_fun(fun)?;
+          let bit = Bit::Neg;
+          let object = self.new_bit(bit)?;
           build.push(object);
         }
         "%mul" => {
-          let fun = Fun::Mul;
-          let object = self.new_fun(fun)?;
+          let bit = Bit::Mul;
+          let object = self.new_bit(bit)?;
           build.push(object);
         }
         "%inv" => {
-          let fun = Fun::Inv;
-          let object = self.new_fun(fun)?;
+          let bit = Bit::Inv;
+          let object = self.new_bit(bit)?;
           build.push(object);
         }
         "%exp" => {
-          let fun = Fun::Exp;
-          let object = self.new_fun(fun)?;
+          let bit = Bit::Exp;
+          let object = self.new_bit(bit)?;
           build.push(object);
         }
         "%log" => {
-          let fun = Fun::Log;
-          let object = self.new_fun(fun)?;
+          let bit = Bit::Log;
+          let object = self.new_bit(bit)?;
           build.push(object);
         }
         "%cos" => {
-          let fun = Fun::Cos;
-          let object = self.new_fun(fun)?;
+          let bit = Bit::Cos;
+          let object = self.new_bit(bit)?;
           build.push(object);
         }
         "%sin" => {
-          let fun = Fun::Sin;
-          let object = self.new_fun(fun)?;
+          let bit = Bit::Sin;
+          let object = self.new_bit(bit)?;
           build.push(object);
         }
         "%abs" => {
-          let fun = Fun::Abs;
-          let object = self.new_fun(fun)?;
+          let bit = Bit::Abs;
+          let object = self.new_bit(bit)?;
           build.push(object);
         }
         "%cel" => {
-          let fun = Fun::Cel;
-          let object = self.new_fun(fun)?;
+          let bit = Bit::Cel;
+          let object = self.new_bit(bit)?;
           build.push(object);
         }
         "%flr" => {
-          let fun = Fun::Flr;
-          let object = self.new_fun(fun)?;
+          let bit = Bit::Flr;
+          let object = self.new_bit(bit)?;
           build.push(object);
         }
         _ => {
@@ -700,81 +700,81 @@ impl Mem {
       &Obj::Nil => {
         //
       }
-      &Obj::Fun(ref value) => {
+      &Obj::Bit(ref value) => {
         match value {
-          Fun::App => {
+          Bit::App => {
             buf.push_str("%app");
           }
-          Fun::Box => {
+          Bit::Box => {
             buf.push_str("%box");
           }
-          Fun::Cat => {
+          Bit::Cat => {
             buf.push_str("%cat");
           }
-          Fun::Cpy => {
+          Bit::Cpy => {
             buf.push_str("%cpy");
           }
-          Fun::Drp => {
+          Bit::Drp => {
             buf.push_str("%drp");
           }
-          Fun::Swp => {
+          Bit::Swp => {
             buf.push_str("%swp");
           }
-          Fun::Fix => {
+          Bit::Fix => {
             buf.push_str("%fix");
           }
-          Fun::Run => {
+          Bit::Run => {
             buf.push_str("%run");
           }
-          Fun::Jmp => {
+          Bit::Jmp => {
             buf.push_str("%jmp");
           }
-          Fun::Num => {
+          Bit::Num => {
             buf.push_str("%num");
           }
-          Fun::Set => {
+          Bit::Set => {
             buf.push_str("%set");
           }
-          Fun::All => {
+          Bit::All => {
             buf.push_str("%all");
           }
-          Fun::Min => {
+          Bit::Min => {
             buf.push_str("%min");
           }
-          Fun::Max => {
+          Bit::Max => {
             buf.push_str("%max");
           }
-          Fun::Add => {
+          Bit::Add => {
             buf.push_str("%add");
           }
-          Fun::Neg => {
+          Bit::Neg => {
             buf.push_str("%neg");
           }
-          Fun::Mul => {
+          Bit::Mul => {
             buf.push_str("%mul");
           }
-          Fun::Inv => {
+          Bit::Inv => {
             buf.push_str("%inv");
           }
-          Fun::Exp => {
+          Bit::Exp => {
             buf.push_str("%exp");
           }
-          Fun::Log => {
+          Bit::Log => {
             buf.push_str("%log");
           }
-          Fun::Cos => {
+          Bit::Cos => {
             buf.push_str("%cos");
           }
-          Fun::Sin => {
+          Bit::Sin => {
             buf.push_str("%sin");
           }
-          Fun::Abs => {
+          Bit::Abs => {
             buf.push_str("%abs");
           }
-          Fun::Cel => {
+          Bit::Cel => {
             buf.push_str("%cel");
           }
-          Fun::Flr => {
+          Bit::Flr => {
             buf.push_str("%flr");
           }
         }
@@ -804,12 +804,12 @@ impl Mem {
       &Obj::Sym(ref value) => {
         buf.push_str(&value);
       }
-      &Obj::Abs(body) => {
+      &Obj::Fun(body) => {
         buf.push('[');
         self.quote(body, buf)?;
         buf.push(']');
       }
-      &Obj::Arr(body) => {
+      &Obj::Cmd(body) => {
         buf.push_str("{ ");
         self.quote(body, buf)?;
         buf.push_str(" }");
