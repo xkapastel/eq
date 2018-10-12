@@ -125,3 +125,39 @@ impl Pod {
     return Ok(target);
   }
 }
+
+#[test]
+fn primitives() {
+  let space   = 1024;
+  let time    = 1024;
+  let mut pod = Pod::from_string("", space, time).unwrap();
+  let mut check = |source, expected| {
+    println!("{} => {}", source, expected);
+    let target = pod.eval(source, time).unwrap();
+    assert_eq!(expected, &target);
+  };
+  check("", "");
+  check("[A]", "[A]");
+  check("[[A]]", "[[A]]");
+  check("[A] [B]", "[A] [B]");
+  check("%app", "%app");
+  check("%box", "%box");
+  check("%cat", "%cat");
+  check("%cpy", "%cpy");
+  check("%drp", "%drp");
+  check("%swp", "%swp");
+  check("%fix", "%fix");
+  check("%run", "%run");
+  check("%jmp", "%jmp");
+  check("[A] %app", "A");
+  check("[A] %box", "[[A]]");
+  check("[A] [B] %cat", "[A B]");
+  check("[A] %cat", "[A] %cat");
+  check("[A] %cpy", "[A] [A]");
+  check("[A] %drp", "");
+  check("[A] [B] %swp", "[B] [A]");
+  check("[A] %swp", "[A] %swp");
+  check("[A] %fix", "[[A] %fix A]");
+  check("{ E [F] %jmp K }", "{ [E] [K] F }");
+  check("E [F] %jmp K", "E [F] %jmp K");
+}
