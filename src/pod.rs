@@ -149,6 +149,9 @@ fn primitives() {
   check("%fix", "%fix");
   check("%run", "%run");
   check("%jmp", "%jmp");
+  check("%all", "%all");
+  check("%set", "%set");
+  check("%num", "%num");
   check("[A] %app", "A");
   check("[A] %box", "[[A]]");
   check("[A] [B] %cat", "[A B]");
@@ -160,4 +163,8 @@ fn primitives() {
   check("[A] %fix", "[[A] %fix A]");
   check("{ E [F] %jmp K }", "{ [E] [K] F }");
   check("E [F] %jmp K", "E [F] %jmp K");
+  check("[A] %set", "[A] %set");
+  check("[A] %num", "[A] %num");
+  check("[A] %all", "[A] %all");
+  check("[A] [B] %all", "[A] [B] %all");
 }
