@@ -31,6 +31,7 @@ pub enum Error {
   Assert,
   Syntax,
   Underflow,
+  Home,
 }
 
 /// The result of a computation.

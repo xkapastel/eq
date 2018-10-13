@@ -10,7 +10,7 @@ Common names for the primitive functions.
 :fix %fix
 :shift %jmp
 :forall %all
-:type %typ
+:set %set
 :number %num
 :+ %add
 :* %mul

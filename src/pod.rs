@@ -78,6 +78,13 @@ impl Pod {
     return Ok(pod);
   }
 
+  pub fn default(space_quota: usize, time_quota: u64) -> Result<Self> {
+    let home = std::env::var("SUNDIAL_HOME").or(Err(Error::Home))?;
+    let path: std::path::PathBuf = [&home, "pod", "default.md"].iter().collect();
+    let src = std::fs::read_to_string(path).or(Err(Error::Home))?;
+    return Pod::from_string(&src, space_quota, time_quota);
+  }
+
   pub fn eval(&mut self, src: &str, time_quota: u64) -> Result<String> {
     let mut dst = String::new();
     if let Some(data) = self.insert_pattern.captures(src) {

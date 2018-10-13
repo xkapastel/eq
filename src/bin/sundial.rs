@@ -26,10 +26,7 @@ fn main() {
   let mut target_buffer = String::new();
   let space_quota       = 1024;
   let time_quota        = 1024;
-  let pod_path          = std::env::var("SUNDIAL_POD").unwrap();
-  let pod_src           = std::fs::read_to_string(&pod_path).unwrap();
-  let mut pod           = sundial::pod::Pod::from_string(
-    &pod_src, space_quota, time_quota).unwrap();
+  let mut pod           = sundial::Pod::default(space_quota, time_quota).unwrap();
   loop {
     print!("user@sundial\nλ ");
     std::io::stdout().flush().unwrap();
