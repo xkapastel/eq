@@ -229,6 +229,15 @@ impl Mem {
 
   /// Creates a new catenation.
   pub fn new_cat(&mut self, fst: Ptr, snd: Ptr) -> Result<Ptr> {
+    if self.is_nil(fst)? {
+      return Ok(snd);
+    }
+    if self.is_cat(fst)? {
+      let fst_fst = self.get_cat_fst(fst)?;
+      let fst_snd = self.get_cat_snd(fst)?;
+      let rhs = self.new_cat(fst_snd, snd)?;
+      return self.new_cat(fst_fst, rhs);
+    }
     let object = Obj::Cat(fst, snd);
     return self.put(object);
   }
