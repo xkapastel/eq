@@ -38,6 +38,7 @@ enum Obj {
   Nil,
   Num(Num),
   Sym(Rc<str>),
+  Ann(Rc<str>),
   Bit(Bit),
   Fun(Ptr),
   Cmd(Ptr),
@@ -58,13 +59,6 @@ pub struct Mem {
 }
 
 impl Ptr {
-  fn id() -> Self {
-    Ptr {
-      index: 0,
-      generation: 0,
-    }
-  }
-
   fn new(index: usize, generation: u64) -> Self {
     Ptr {
       index: index,
@@ -128,6 +122,13 @@ impl Obj {
   fn is_sym(&self) -> bool {
     match self {
       Obj::Sym(_) => true,
+      _ => false,
+    }
+  }
+
+  fn is_ann(&self) -> bool {
+    match self {
+      Obj::Ann(_) => true,
       _ => false,
     }
   }
@@ -215,6 +216,12 @@ impl Mem {
     return self.put(object);
   }
 
+  /// Creates a new annotation.
+  pub fn new_ann(&mut self, value: Rc<str>) -> Result<Ptr> {
+    let object = Obj::Ann(value);
+    return self.put(object);
+  }
+
   /// Creates a new funtraction.
   pub fn new_fun(&mut self, body: Ptr) -> Result<Ptr> {
     let object = Obj::Fun(body);
@@ -286,6 +293,12 @@ impl Mem {
   pub fn is_sym(&self, pointer: Ptr) -> Result<bool> {
     let object = self.get_ref(pointer)?;
     return Ok(object.is_sym());
+  }
+
+  /// Predicates annotations.
+  pub fn is_ann(&self, pointer: Ptr) -> Result<bool> {
+    let object = self.get_ref(pointer)?;
+    return Ok(object.is_ann());
   }
 
   /// Predicates funtractions.
@@ -377,6 +390,18 @@ impl Mem {
   pub fn get_sym(&self, pointer: Ptr) -> Result<Rc<str>> {
     match self.get_ref(pointer)? {
       &Obj::Sym(ref value) => {
+        return Ok(value.clone());
+      }
+      _ => {
+        return Err(Error::Tag);
+      }
+    }
+  }
+
+  /// Get the value of an annotation.
+  pub fn get_ann(&self, pointer: Ptr) -> Result<Rc<str>> {
+    match self.get_ref(pointer)? {
+      &Obj::Ann(ref value) => {
         return Ok(value.clone());
       }
       _ => {
@@ -680,12 +705,18 @@ impl Mem {
               let object = self.new_num(value)?;
               build.push(object);
             }
-            Err(error) => {
+            Err(_) => {
               if word.starts_with("%") {
                 return Err(Error::Syntax);
               }
-              let object = self.new_sym(word.into())?;
-              build.push(object);
+              if let Some(data) = ANN_REGEX.captures(&word) {
+                let name = data.get(1).ok_or(Error::Bug)?.as_str();
+                let object = self.new_ann(name.into())?;
+                build.push(object);
+              } else {
+                let object = self.new_sym(word.into())?;
+                build.push(object);
+              }
             }
           }
         }
@@ -809,6 +840,11 @@ impl Mem {
       }
       &Obj::Sym(ref value) => {
         buf.push_str(&value);
+      }
+      &Obj::Ann(ref value) => {
+        buf.push('(');
+        buf.push_str(&value);
+        buf.push(')');
       }
       &Obj::Fun(body) => {
         buf.push('[');

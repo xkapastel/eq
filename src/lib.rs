@@ -39,6 +39,29 @@ pub type Result<T> = std::result::Result<T, Error>;
 
 pub type Num = f64;
 
+pub const SYM_PATTERN: &'static str = r"[a-z0-9+\-*/<>=_]+";
+
+#[macro_use]
+extern crate lazy_static;
+
+lazy_static! {
+  static ref WORD_REGEX: regex::Regex = {
+    regex::Regex::new(SYM_PATTERN).unwrap()
+  };
+  static ref POD_INSERT_REGEX: regex::Regex = {
+    let src = format!(r"^:({})\s+(.*)", SYM_PATTERN);
+    regex::Regex::new(&src).unwrap()
+  };
+  static ref POD_DELETE_REGEX: regex::Regex = {
+    let src = format!(r"^~({})\s*", SYM_PATTERN);
+    regex::Regex::new(&src).unwrap()
+  };
+  static ref ANN_REGEX: regex::Regex = {
+    let src = format!(r"^\(({})\)$", SYM_PATTERN);
+    regex::Regex::new(&src).unwrap()
+  };
+}
+
 /// A Sundial bitcode.
 #[derive(Debug, Copy, Clone)]
 pub enum Bit {

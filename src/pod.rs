@@ -45,23 +45,13 @@ fn extract_code_blocks(src: &str) -> String {
 pub struct Pod {
   mem: mem::Mem,
   tab: mem::Tab,
-  insert_pattern: regex::Regex,
-  delete_pattern: regex::Regex,
 }
-
-const word_pattern: &'static str = r"[a-z0-9+\-*/<>!?=@.$;]+";
 
 impl Pod {
   fn with_mem(mem: mem::Mem) -> Self {
-    let src = format!(r"^:({})\s+(.*)", word_pattern);
-    let insert_pattern = regex::Regex::new(&src).expect("insert");
-    let src = format!(r"^~({})\s*", word_pattern);
-    let delete_pattern = regex::Regex::new(&src).expect("delete");
     Pod {
       mem: mem,
       tab: HashMap::new(),
-      insert_pattern: insert_pattern,
-      delete_pattern: delete_pattern,
     }
   }
 
@@ -87,7 +77,7 @@ impl Pod {
 
   pub fn eval(&mut self, src: &str, time_quota: u64) -> Result<String> {
     let mut dst = String::new();
-    if let Some(data) = self.insert_pattern.captures(src) {
+    if let Some(data) = POD_INSERT_REGEX.captures(src) {
       let key: Rc<str> = data.get(1).expect("key").as_str().into();
       let value_src = data.get(2).expect("value").as_str();
       let value = self.mem.parse(value_src)?;
@@ -98,7 +88,7 @@ impl Pod {
       dst.push_str(&key);
       dst.push(' ');
       self.mem.quote(value, &mut dst)?;
-    } else if let Some(data) = self.delete_pattern.captures(src) {
+    } else if let Some(data) = POD_DELETE_REGEX.captures(src) {
       let key: Rc<str> = data.get(1).expect("key").as_str().into();
       self.tab.remove(&key);
       dst.push('~');

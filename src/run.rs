@@ -511,7 +511,7 @@ impl Thread {
         }
       }
       return Ok(());
-    } else if mem.is_nil(code)? {
+    } else if mem.is_nil(code)? || mem.is_ann(code)? {
       return Ok(());
     } else {
       return Err(Error::Bug);
