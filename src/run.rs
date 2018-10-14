@@ -46,25 +46,9 @@ fn num_unop(
   func: &Fn(Num) -> Num,
   source: mem::Ptr,
   mem: &mut mem::Mem) -> Result<mem::Ptr> {
-  if mem.is_num(source)? {
-    let source_value = mem.get_num(source)?;
-    let target_value = func(source_value);
-    return mem.new_num(target_value);
-  } else if mem.is_fun(source)? {
-    let source_body = mem.get_fun_body(source)?;
-    let target_body = num_unop(func, source_body, mem)?;
-    return mem.new_fun(target_body);
-  } else if mem.is_cat(source)? {
-    let source_fst = mem.get_cat_fst(source)?;
-    let source_snd = mem.get_cat_snd(source)?;
-    let target_fst = num_unop(func, source_fst, mem)?;
-    let target_snd = num_unop(func, source_snd, mem)?;
-    return mem.new_cat(target_fst, target_snd);
-  } else if mem.is_nil(source)? {
-    return Ok(source);
-  } else {
-    return Err(Error::Tag);
-  }
+  let source_value = mem.get_num(source)?;
+  let target_value = func(source_value);
+  return mem.new_num(target_value);
 }
 
 fn num_binop(
@@ -72,33 +56,10 @@ fn num_binop(
   lhs: mem::Ptr,
   rhs: mem::Ptr,
   mem: &mut mem::Mem) -> Result<mem::Ptr> {
-  if mem.is_num(lhs)? {
-    assert(mem.is_num(rhs))?;
-    let lhs_value = mem.get_num(lhs)?;
-    let rhs_value = mem.get_num(rhs)?;
-    let target_value = func(lhs_value, rhs_value);
-    return mem.new_num(target_value);
-  } else if mem.is_fun(lhs)? {
-    assert(mem.is_fun(rhs))?;
-    let lhs_body = mem.get_fun_body(lhs)?;
-    let rhs_body = mem.get_fun_body(rhs)?;
-    let target_body = num_binop(func, lhs_body, rhs_body, mem)?;
-    return mem.new_fun(target_body);
-  } else if mem.is_cat(lhs)? {
-    assert(mem.is_cat(rhs))?;
-    let lhs_fst = mem.get_cat_fst(lhs)?;
-    let lhs_snd = mem.get_cat_snd(lhs)?;
-    let rhs_fst = mem.get_cat_fst(rhs)?;
-    let rhs_snd = mem.get_cat_snd(rhs)?;
-    let target_fst = num_binop(func, lhs_fst, rhs_fst, mem)?;
-    let target_snd = num_binop(func, lhs_snd, rhs_snd, mem)?;
-    return mem.new_cat(target_fst, target_snd);
-  } else if mem.is_nil(lhs)? {
-    assert(mem.is_nil(rhs))?;
-    return Ok(lhs);
-  } else {
-    return Err(Error::Tag);
-  }
+  let lhs_value = mem.get_num(lhs)?;
+  let rhs_value = mem.get_num(rhs)?;
+  let target_value = func(lhs_value, rhs_value);
+  return mem.new_num(target_value);
 }
 
 use std::collections::VecDeque;
