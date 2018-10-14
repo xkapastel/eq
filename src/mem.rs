@@ -302,14 +302,8 @@ impl Mem {
 
   /// Predicates catenations.
   pub fn is_cat(&self, pointer: Ptr) -> Result<bool> {
-    match self.get_ref(pointer)? {
-      &Obj::Cat(_, _) => {
-        return Ok(true);
-      }
-      _ => {
-        return Ok(false);
-      }
-    }
+    let object = self.get_ref(pointer)?;
+    return Ok(object.is_cat());
   }
 
   /// Get the value of a number.
@@ -687,6 +681,9 @@ impl Mem {
               build.push(object);
             }
             Err(error) => {
+              if word.starts_with("%") {
+                return Err(Error::Syntax);
+              }
               let object = self.new_sym(word.into())?;
               build.push(object);
             }

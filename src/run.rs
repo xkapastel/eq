@@ -173,10 +173,9 @@ impl Thread {
         }
         let mut previous = self.stack.pop().ok_or(Error::Bug)?;
         if self.frame.is_thunked() {
-          let cmd_body = self.get_environment(mem)?;
-          let cmd = mem.new_cmd(cmd_body)?;
+          let env = self.get_environment(mem)?;
           self.frame = previous;
-          self.thunk(cmd);
+          self.thunk(env);
         } else {
           previous.env.append(&mut self.frame.env);
           self.frame = previous;
@@ -343,6 +342,8 @@ impl Thread {
           let callback_body = mem.get_fun_body(callback)?;
           let env_body = self.get_environment(mem)?;
           let con_body = self.get_continuation(mem)?;
+          let env_body = mem.new_cmd(env_body)?;
+          let con_body = mem.new_cmd(con_body)?;
           let environment = mem.new_fun(env_body)?;
           let continuation = mem.new_fun(con_body)?;
           self.push_environment(environment);

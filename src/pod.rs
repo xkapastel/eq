@@ -168,7 +168,7 @@ fn primitives() {
   check("[A] [B] %swp", "[B] [A]");
   check("[A] %swp", "[A] %swp");
   check("[A] %fix", "[[A] %fix A]");
-  check("{ E [F] %jmp K }", "{ [E] [K] F }");
+  check("L { E [F] %jmp K } R", "L [{ E }] [{ K }] F R");
   check("E [F] %jmp K", "E [F] %jmp K");
   check("[A] %set", "[A] %set");
   check("[A] %num", "[A] %num");

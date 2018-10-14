@@ -24,5 +24,5 @@ Sundial bytecode is a [concatenative language](http://tunes.org/~iepos/joy.html)
      [B] [A] %swp = [A] [B]
          [A] %fix = [[A] %fix A]
          [A] %run = { A }
- { E [F] %jmp K } = { [E] [K] F }
+ { E [F] %jmp K } = [{ E }] [{ K }] F
 ```
