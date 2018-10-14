@@ -35,6 +35,72 @@ pub fn reduce(
   return thread.get_environment(mem);
 }
 
+fn invert(x: Num) -> Num {
+  if x == 0.0 {
+    return 0.0;
+  }
+  return 1.0 / x;
+}
+
+fn num_unop(
+  func: &Fn(Num) -> Num,
+  source: mem::Ptr,
+  mem: &mut mem::Mem) -> Result<mem::Ptr> {
+  if mem.is_num(source)? {
+    let source_value = mem.get_num(source)?;
+    let target_value = func(source_value);
+    return mem.new_num(target_value);
+  } else if mem.is_fun(source)? {
+    let source_body = mem.get_fun_body(source)?;
+    let target_body = num_unop(func, source_body, mem)?;
+    return mem.new_fun(target_body);
+  } else if mem.is_cat(source)? {
+    let source_fst = mem.get_cat_fst(source)?;
+    let source_snd = mem.get_cat_snd(source)?;
+    let target_fst = num_unop(func, source_fst, mem)?;
+    let target_snd = num_unop(func, source_snd, mem)?;
+    return mem.new_cat(target_fst, target_snd);
+  } else if mem.is_nil(source)? {
+    return Ok(source);
+  } else {
+    return Err(Error::Tag);
+  }
+}
+
+fn num_binop(
+  func: &Fn(Num, Num) -> Num,
+  lhs: mem::Ptr,
+  rhs: mem::Ptr,
+  mem: &mut mem::Mem) -> Result<mem::Ptr> {
+  if mem.is_num(lhs)? {
+    assert(mem.is_num(rhs))?;
+    let lhs_value = mem.get_num(lhs)?;
+    let rhs_value = mem.get_num(rhs)?;
+    let target_value = func(lhs_value, rhs_value);
+    return mem.new_num(target_value);
+  } else if mem.is_fun(lhs)? {
+    assert(mem.is_fun(rhs))?;
+    let lhs_body = mem.get_fun_body(lhs)?;
+    let rhs_body = mem.get_fun_body(rhs)?;
+    let target_body = num_binop(func, lhs_body, rhs_body, mem)?;
+    return mem.new_fun(target_body);
+  } else if mem.is_cat(lhs)? {
+    assert(mem.is_cat(rhs))?;
+    let lhs_fst = mem.get_cat_fst(lhs)?;
+    let lhs_snd = mem.get_cat_snd(lhs)?;
+    let rhs_fst = mem.get_cat_fst(rhs)?;
+    let rhs_snd = mem.get_cat_snd(rhs)?;
+    let target_fst = num_binop(func, lhs_fst, rhs_fst, mem)?;
+    let target_snd = num_binop(func, lhs_snd, rhs_snd, mem)?;
+    return mem.new_cat(target_fst, target_snd);
+  } else if mem.is_nil(lhs)? {
+    assert(mem.is_nil(rhs))?;
+    return Ok(lhs);
+  } else {
+    return Err(Error::Tag);
+  }
+}
+
 use std::collections::VecDeque;
 
 #[derive(Debug, Clone)]
@@ -318,10 +384,7 @@ impl Thread {
           }
           let snd = self.pop_environment()?;
           let fst = self.pop_environment()?;
-          let snd_value = mem.get_num(snd)?;
-          let fst_value = mem.get_num(fst)?;
-          let target_value = snd_value.min(fst_value);
-          let target = mem.new_num(target_value)?;
+          let target = num_binop(&|x, y| x.min(y), fst, snd, mem)?;
           self.push_environment(target);
         }
         Bit::Max => {
@@ -331,10 +394,7 @@ impl Thread {
           }
           let snd = self.pop_environment()?;
           let fst = self.pop_environment()?;
-          let snd_value = mem.get_num(snd)?;
-          let fst_value = mem.get_num(fst)?;
-          let target_value = snd_value.max(fst_value);
-          let target = mem.new_num(target_value)?;
+          let target = num_binop(&|x, y| x.max(y), fst, snd, mem)?;
           self.push_environment(target);
         }
         Bit::Add => {
@@ -344,10 +404,7 @@ impl Thread {
           }
           let snd = self.pop_environment()?;
           let fst = self.pop_environment()?;
-          let snd_value = mem.get_num(snd)?;
-          let fst_value = mem.get_num(fst)?;
-          let target_value = snd_value + fst_value;
-          let target = mem.new_num(target_value)?;
+          let target = num_binop(&|x, y| x + y, fst, snd, mem)?;
           self.push_environment(target);
         }
         Bit::Neg => {
@@ -356,9 +413,7 @@ impl Thread {
             return Ok(());
           }
           let source = self.pop_environment()?;
-          let source_value = mem.get_num(source)?;
-          let target_value = 0.0 - source_value;
-          let target = mem.new_num(target_value)?;
+          let target = num_unop(&|x| 0.0 - x, source, mem)?;
           self.push_environment(target);
         }
         Bit::Mul => {
@@ -368,10 +423,7 @@ impl Thread {
           }
           let snd = self.pop_environment()?;
           let fst = self.pop_environment()?;
-          let snd_value = mem.get_num(snd)?;
-          let fst_value = mem.get_num(fst)?;
-          let target_value = snd_value * fst_value;
-          let target = mem.new_num(target_value)?;
+          let target = num_binop(&|x, y| x * y, fst, snd, mem)?;
           self.push_environment(target);
         }
         Bit::Inv => {
@@ -380,14 +432,7 @@ impl Thread {
             return Ok(());
           }
           let source = self.pop_environment()?;
-          let source_value = mem.get_num(source)?;
-          if source_value == 0.0 {
-            self.push_environment(source);
-            self.thunk(code);
-            return Ok(());
-          }
-          let target_value = 1.0 / source_value;
-          let target = mem.new_num(target_value)?;
+          let target = num_unop(&invert, source, mem)?;
           self.push_environment(target);
         }
         Bit::Exp => {
@@ -396,9 +441,7 @@ impl Thread {
             return Ok(());
           }
           let source = self.pop_environment()?;
-          let source_value = mem.get_num(source)?;
-          let target_value = source_value.exp();
-          let target = mem.new_num(target_value)?;
+          let target = num_unop(&|x| x.exp(), source, mem)?;
           self.push_environment(target);
         }
         Bit::Log => {
@@ -407,9 +450,7 @@ impl Thread {
             return Ok(());
           }
           let source = self.pop_environment()?;
-          let source_value = mem.get_num(source)?;
-          let target_value = source_value.ln();
-          let target = mem.new_num(target_value)?;
+          let target = num_unop(&|x| x.ln(), source, mem)?;
           self.push_environment(target);
         }
         Bit::Cos => {
@@ -418,9 +459,7 @@ impl Thread {
             return Ok(());
           }
           let source = self.pop_environment()?;
-          let source_value = mem.get_num(source)?;
-          let target_value = source_value.cos();
-          let target = mem.new_num(target_value)?;
+          let target = num_unop(&|x| x.cos(), source, mem)?;
           self.push_environment(target);
         }
         Bit::Sin => {
@@ -429,9 +468,7 @@ impl Thread {
             return Ok(());
           }
           let source = self.pop_environment()?;
-          let source_value = mem.get_num(source)?;
-          let target_value = source_value.sin();
-          let target = mem.new_num(target_value)?;
+          let target = num_unop(&|x| x.sin(), source, mem)?;
           self.push_environment(target);
         }
         Bit::Abs => {
@@ -440,9 +477,7 @@ impl Thread {
             return Ok(());
           }
           let source = self.pop_environment()?;
-          let source_value = mem.get_num(source)?;
-          let target_value = source_value.abs();
-          let target = mem.new_num(target_value)?;
+          let target = num_unop(&|x| x.abs(), source, mem)?;
           self.push_environment(target);
         }
         Bit::Cel => {
@@ -451,9 +486,7 @@ impl Thread {
             return Ok(());
           }
           let source = self.pop_environment()?;
-          let source_value = mem.get_num(source)?;
-          let target_value = source_value.ceil();
-          let target = mem.new_num(target_value)?;
+          let target = num_unop(&|x| x.ceil(), source, mem)?;
           self.push_environment(target);
         }
         Bit::Flr => {
@@ -462,9 +495,7 @@ impl Thread {
             return Ok(());
           }
           let source = self.pop_environment()?;
-          let source_value = mem.get_num(source)?;
-          let target_value = source_value.floor();
-          let target = mem.new_num(target_value)?;
+          let target = num_unop(&|x| x.floor(), source, mem)?;
           self.push_environment(target);
         }
       }
