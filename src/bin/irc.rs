@@ -37,7 +37,7 @@ fn irc_config() -> mirc::Config {
 }
 
 fn main() {
-  let space_quota = 4096;
+  let space_quota = 65536;
   let time_quota = 4096;
   let mut pod = sundial::Pod::default(space_quota, time_quota).unwrap();
   let mut reactor = mirc::IrcReactor::new().unwrap();
@@ -54,16 +54,9 @@ fn main() {
         if message_body.starts_with(&command_prefix) {
           let source = message_body
             .trim_left_matches(&command_prefix).trim();
-          match pod.eval(&source, 1024) {
-            Ok(target) => {
-              let command = mirc::Command::PRIVMSG(response_target, target);
-              client.send(command)?;
-            }
-            Err(error) => {
-              let target = format!("error: {:?}", &error);
-              let command = mirc::Command::PRIVMSG(response_target, target);
-              client.send(command)?;
-            }
+          if let Ok(target) = pod.eval(&source, time_quota) {
+            let command = mirc::Command::PRIVMSG(response_target, target);
+            client.send(command)?;
           }
         }
       }
