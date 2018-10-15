@@ -228,10 +228,8 @@ impl Thread {
             self.thunk(code);
             return Ok(());
           }
-          let nil = mem.new_nil()?;
           let source = self.pop_environment()?;
           let target = mem.new_fun(source)?;
-          let target = mem.new_cat(target, nil)?;
           self.push_environment(target);
         }
         Bit::Cat => {

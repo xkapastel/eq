@@ -167,4 +167,5 @@ fn primitives() {
   check("[A] %num", "[A] %num");
   check("[A] %all", "[A] %all");
   check("[A] [B] %all", "[A] [B] %all");
+  check("[A] [B] %box %cat", "[A [B]]");
 }
