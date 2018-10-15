@@ -17,6 +17,9 @@
 
 use super::*;
 
+use std::rc::Rc;
+use std::collections::HashMap;
+
 fn iter_nodes<'a, F>(
   node: &'a comrak::nodes::AstNode<'a>,
   func: &mut F) where F: FnMut(&'a comrak::nodes::AstNode<'a>) {

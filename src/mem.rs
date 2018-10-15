@@ -26,6 +26,8 @@ pub struct Ptr {
   generation: u64,
 }
 
+use std::collections::HashMap;
+
 pub type Tab = HashMap<Rc<str>, mem::Ptr>;
 
 enum Pro {
