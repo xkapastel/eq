@@ -41,12 +41,12 @@ pub enum Bit {
   App,
   Box,
   Cat,
-  Cpy,
-  Drp,
-  Swp,
+  Copy,
+  Drop,
+  Swap,
   Fix,
   Run,
-  Jmp,
+  Shift,
 }
 
 /// Halt the computation if the given condition is false.

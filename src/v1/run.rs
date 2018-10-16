@@ -214,7 +214,7 @@ impl Thread {
           let target = mem.new_fun(target_body)?;
           self.push_environment(target);
         }
-        Bit::Cpy => {
+        Bit::Copy => {
           if !self.is_monadic() {
             self.thunk(code);
             return Ok(());
@@ -222,14 +222,14 @@ impl Thread {
           let source = self.peek_environment()?;
           self.push_environment(source);
         }
-        Bit::Drp => {
+        Bit::Drop => {
           if !self.is_monadic() {
             self.thunk(code);
             return Ok(());
           }
           self.pop_environment()?;
         }
-        Bit::Swp => {
+        Bit::Swap => {
           if !self.is_dyadic() {
             self.thunk(code);
             return Ok(());
@@ -261,7 +261,7 @@ impl Thread {
           let target = mem.new_cmd(source_body)?;
           self.push_continuation_front(target);
         }
-        Bit::Jmp => {
+        Bit::Shift => {
           if !self.is_monadic() || self.stack.is_empty() {
             self.thunk(code);
             return Ok(());

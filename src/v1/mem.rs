@@ -427,18 +427,18 @@ impl Mem {
           let object = self.new_bit(bit)?;
           build.push(object);
         }
-        "%cpy" => {
-          let bit = Bit::Cpy;
+        "%copy" => {
+          let bit = Bit::Copy;
           let object = self.new_bit(bit)?;
           build.push(object);
         }
-        "%drp" => {
-          let bit = Bit::Drp;
+        "%drop" => {
+          let bit = Bit::Drop;
           let object = self.new_bit(bit)?;
           build.push(object);
         }
-        "%swp" => {
-          let bit = Bit::Swp;
+        "%swap" => {
+          let bit = Bit::Swap;
           let object = self.new_bit(bit)?;
           build.push(object);
         }
@@ -452,8 +452,8 @@ impl Mem {
           let object = self.new_bit(bit)?;
           build.push(object);
         }
-        "%jmp" => {
-          let bit = Bit::Jmp;
+        "%shift" => {
+          let bit = Bit::Shift;
           let object = self.new_bit(bit)?;
           build.push(object);
         }
@@ -498,14 +498,14 @@ impl Mem {
           Bit::Cat => {
             buf.push_str("%cat");
           }
-          Bit::Cpy => {
-            buf.push_str("%cpy");
+          Bit::Copy => {
+            buf.push_str("%copy");
           }
-          Bit::Drp => {
-            buf.push_str("%drp");
+          Bit::Drop => {
+            buf.push_str("%drop");
           }
-          Bit::Swp => {
-            buf.push_str("%swp");
+          Bit::Swap => {
+            buf.push_str("%swap");
           }
           Bit::Fix => {
             buf.push_str("%fix");
@@ -513,8 +513,8 @@ impl Mem {
           Bit::Run => {
             buf.push_str("%run");
           }
-          Bit::Jmp => {
-            buf.push_str("%jmp");
+          Bit::Shift => {
+            buf.push_str("%shift");
           }
         }
       }
