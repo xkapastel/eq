@@ -23,3 +23,4 @@ extern crate atom_syndication;
 extern crate lazy_static;
 
 pub mod v0;
+pub mod v1;
