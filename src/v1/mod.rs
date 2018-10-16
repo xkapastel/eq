@@ -45,8 +45,6 @@ pub enum Bit {
   Drop,
   Swap,
   Fix,
-  Run,
-  Shift,
 }
 
 /// Halt the computation if the given condition is false.

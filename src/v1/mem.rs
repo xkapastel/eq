@@ -36,7 +36,6 @@ enum Obj {
   Ann(Rc<str>),
   Bit(Bit),
   Fun(Ptr),
-  Cmd(Ptr),
   Cat(Ptr, Ptr),
 }
 
@@ -93,13 +92,6 @@ impl Obj {
   fn is_fun(&self) -> bool {
     match self {
       Obj::Fun(_) => true,
-      _ => false,
-    }
-  }
-
-  fn is_cmd(&self) -> bool {
-    match self {
-      Obj::Cmd(_) => true,
       _ => false,
     }
   }
@@ -164,12 +156,6 @@ impl Mem {
     return self.put(object);
   }
 
-  /// Creates a new cmdow.
-  pub fn new_cmd(&mut self, body: Ptr) -> Result<Ptr> {
-    let object = Obj::Cmd(body);
-    return self.put(object);
-  }
-
   /// Creates a new catenation.
   pub fn new_cat(&mut self, fst: Ptr, snd: Ptr) -> Result<Ptr> {
     if self.is_nil(fst)? {
@@ -213,12 +199,6 @@ impl Mem {
   pub fn is_fun(&self, pointer: Ptr) -> Result<bool> {
     let object = self.get_ref(pointer)?;
     return Ok(object.is_fun());
-  }
-
-  /// Predicates cmdows.
-  pub fn is_cmd(&self, pointer: Ptr) -> Result<bool> {
-    let object = self.get_ref(pointer)?;
-    return Ok(object.is_cmd());
   }
 
   /// Predicates catenations.
@@ -274,18 +254,6 @@ impl Mem {
     }
   }
 
-  /// Get the body of an cmdow.
-  pub fn get_cmd_body(&self, pointer: Ptr) -> Result<Ptr> {
-    match self.get_ref(pointer)? {
-      &Obj::Cmd(ref body) => {
-        return Ok(*body);
-      }
-      _ => {
-        return Err(Error::Tag);
-      }
-    }
-  }
-
   /// Get the first element of a catenation.
   pub fn get_cat_fst(&self, pointer: Ptr) -> Result<Ptr> {
     match self.get_ref(pointer)? {
@@ -319,9 +287,6 @@ impl Mem {
         node.is_visible = true;
         match &node.object {
           &Obj::Fun(body) => {
-            return self.mark(body);
-          }
-          &Obj::Cmd(body) => {
             return self.mark(body);
           }
           &Obj::Cat(fst, snd) => {
@@ -367,42 +332,17 @@ impl Mem {
   pub fn parse(&mut self, src: &str) -> Result<Ptr> {
     let mut build = Vec::new();
     let mut stack = Vec::new();
-    let mut brackets = Vec::new();
     let src = src.replace("{", "{ ");
     let src = src.replace("}", " }");
     let src = src.replace("[", "[ ");
     let src = src.replace("]", " ]");
     for word in src.split_whitespace() {
       match word {
-        "{" => {
-          brackets.push('{');
-          stack.push(build);
-          build = Vec::new();
-        }
-        "}" => {
-          let current_bracket = brackets.pop().ok_or(Error::Syntax)?;
-          if current_bracket != '{' {
-            return Err(Error::Syntax);
-          }
-          let prev = stack.pop().ok_or(Error::Syntax)?;
-          let mut xs = self.new_nil()?;
-          for object in build.iter().rev() {
-            xs = self.new_cat(*object, xs)?;
-          }
-          xs = self.new_cmd(xs)?;
-          build = prev;
-          build.push(xs);
-        }
         "[" => {
-          brackets.push('[');
           stack.push(build);
           build = Vec::new();
         }
         "]" => {
-          let current_bracket = brackets.pop().ok_or(Error::Syntax)?;
-          if current_bracket != '[' {
-            return Err(Error::Syntax);
-          }
           let prev = stack.pop().ok_or(Error::Syntax)?;
           let mut xs = self.new_nil()?;
           for object in build.iter().rev() {
@@ -444,16 +384,6 @@ impl Mem {
         }
         "%fix" => {
           let bit = Bit::Fix;
-          let object = self.new_bit(bit)?;
-          build.push(object);
-        }
-        "%run" => {
-          let bit = Bit::Run;
-          let object = self.new_bit(bit)?;
-          build.push(object);
-        }
-        "%shift" => {
-          let bit = Bit::Shift;
           let object = self.new_bit(bit)?;
           build.push(object);
         }
@@ -510,12 +440,6 @@ impl Mem {
           Bit::Fix => {
             buf.push_str("%fix");
           }
-          Bit::Run => {
-            buf.push_str("%run");
-          }
-          Bit::Shift => {
-            buf.push_str("%shift");
-          }
         }
       }
       &Obj::Sym(ref value) => {
@@ -530,11 +454,6 @@ impl Mem {
         buf.push('[');
         self.quote(body, buf)?;
         buf.push(']');
-      }
-      &Obj::Cmd(body) => {
-        buf.push_str("{ ");
-        self.quote(body, buf)?;
-        buf.push_str(" }");
       }
       &Obj::Cat(fst, snd) => {
         self.quote(fst, buf)?;

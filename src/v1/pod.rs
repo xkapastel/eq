@@ -147,8 +147,6 @@ fn primitives() {
   check("%drop", "%drop");
   check("%swap", "%swap");
   check("%fix", "%fix");
-  check("%run", "%run");
-  check("%shift", "%shift");
   check("[A] %app", "A");
   check("[A] %box", "[[A]]");
   check("[A] [B] %cat", "[A B]");
@@ -158,7 +156,5 @@ fn primitives() {
   check("[A] [B] %swap", "[B] [A]");
   check("[A] %swap", "[A] %swap");
   check("[A] %fix", "[[A] %fix A]");
-  check("L { E [F] %shift K } R", "L [{ E }] [{ K }] F R");
-  check("E [F] %shift K", "E [F] %shift K");
   check("[A] [B] %box %cat", "[A [B]]");
 }
