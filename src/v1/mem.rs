@@ -32,7 +32,6 @@ pub type Tab = HashMap<Rc<str>, mem::Ptr>;
 
 enum Obj {
   Nil,
-  Num(Num),
   Sym(Rc<str>),
   Ann(Rc<str>),
   Bit(Bit),
@@ -73,13 +72,6 @@ impl Obj {
   fn is_bit(&self) -> bool {
     match self {
       Obj::Bit(_) => true,
-      _ => false,
-    }
-  }
-
-  fn is_num(&self) -> bool {
-    match self {
-      Obj::Num(_) => true,
       _ => false,
     }
   }
@@ -154,12 +146,6 @@ impl Mem {
     return self.put(object);
   }
 
-  /// Creates a new number.
-  pub fn new_num(&mut self, value: Num) -> Result<Ptr> {
-    let object = Obj::Num(value);
-    return self.put(object);
-  }
-
   /// Creates a new symbol.
   pub fn new_sym(&mut self, value: Rc<str>) -> Result<Ptr> {
     let object = Obj::Sym(value);
@@ -211,12 +197,6 @@ impl Mem {
     return Ok(object.is_bit());
   }
 
-  /// Predicates numbers.
-  pub fn is_num(&self, pointer: Ptr) -> Result<bool> {
-    let object = self.get_ref(pointer)?;
-    return Ok(object.is_num());
-  }
-
   /// Predicates symbols.
   pub fn is_sym(&self, pointer: Ptr) -> Result<bool> {
     let object = self.get_ref(pointer)?;
@@ -245,18 +225,6 @@ impl Mem {
   pub fn is_cat(&self, pointer: Ptr) -> Result<bool> {
     let object = self.get_ref(pointer)?;
     return Ok(object.is_cat());
-  }
-
-  /// Get the value of a number.
-  pub fn get_num(&self, pointer: Ptr) -> Result<Num> {
-    match self.get_ref(pointer)? {
-      &Obj::Num(value) => {
-        return Ok(value);
-      }
-      _ => {
-        return Err(Error::Tag);
-      }
-    }
   }
 
   pub fn get_bit(&self, pointer: Ptr) -> Result<Bit> {
@@ -489,90 +457,17 @@ impl Mem {
           let object = self.new_bit(bit)?;
           build.push(object);
         }
-        "%min" => {
-          let bit = Bit::Min;
-          let object = self.new_bit(bit)?;
-          build.push(object);
-        }
-        "%max" => {
-          let bit = Bit::Max;
-          let object = self.new_bit(bit)?;
-          build.push(object);
-        }
-        "%add" => {
-          let bit = Bit::Add;
-          let object = self.new_bit(bit)?;
-          build.push(object);
-        }
-        "%neg" => {
-          let bit = Bit::Neg;
-          let object = self.new_bit(bit)?;
-          build.push(object);
-        }
-        "%mul" => {
-          let bit = Bit::Mul;
-          let object = self.new_bit(bit)?;
-          build.push(object);
-        }
-        "%inv" => {
-          let bit = Bit::Inv;
-          let object = self.new_bit(bit)?;
-          build.push(object);
-        }
-        "%exp" => {
-          let bit = Bit::Exp;
-          let object = self.new_bit(bit)?;
-          build.push(object);
-        }
-        "%log" => {
-          let bit = Bit::Log;
-          let object = self.new_bit(bit)?;
-          build.push(object);
-        }
-        "%cos" => {
-          let bit = Bit::Cos;
-          let object = self.new_bit(bit)?;
-          build.push(object);
-        }
-        "%sin" => {
-          let bit = Bit::Sin;
-          let object = self.new_bit(bit)?;
-          build.push(object);
-        }
-        "%abs" => {
-          let bit = Bit::Abs;
-          let object = self.new_bit(bit)?;
-          build.push(object);
-        }
-        "%cel" => {
-          let bit = Bit::Cel;
-          let object = self.new_bit(bit)?;
-          build.push(object);
-        }
-        "%flr" => {
-          let bit = Bit::Flr;
-          let object = self.new_bit(bit)?;
-          build.push(object);
-        }
         _ => {
-          match word.parse::<Num>() {
-            Ok(value) => {
-              let object = self.new_num(value)?;
-              build.push(object);
-            }
-            Err(_) => {
-              if word.starts_with("%") {
-                return Err(Error::Syntax);
-              }
-              if let Some(data) = ANN_REGEX.captures(&word) {
-                let name = data.get(1).ok_or(Error::Bug)?.as_str();
-                let object = self.new_ann(name.into())?;
-                build.push(object);
-              } else {
-                let object = self.new_sym(word.into())?;
-                build.push(object);
-              }
-            }
+          if word.starts_with("%") {
+            return Err(Error::Syntax);
+          }
+          if let Some(data) = ANN_REGEX.captures(&word) {
+            let name = data.get(1).ok_or(Error::Bug)?.as_str();
+            let object = self.new_ann(name.into())?;
+            build.push(object);
+          } else {
+            let object = self.new_sym(word.into())?;
+            build.push(object);
           }
         }
       }
@@ -621,50 +516,7 @@ impl Mem {
           Bit::Jmp => {
             buf.push_str("%jmp");
           }
-          Bit::Min => {
-            buf.push_str("%min");
-          }
-          Bit::Max => {
-            buf.push_str("%max");
-          }
-          Bit::Add => {
-            buf.push_str("%add");
-          }
-          Bit::Neg => {
-            buf.push_str("%neg");
-          }
-          Bit::Mul => {
-            buf.push_str("%mul");
-          }
-          Bit::Inv => {
-            buf.push_str("%inv");
-          }
-          Bit::Exp => {
-            buf.push_str("%exp");
-          }
-          Bit::Log => {
-            buf.push_str("%log");
-          }
-          Bit::Cos => {
-            buf.push_str("%cos");
-          }
-          Bit::Sin => {
-            buf.push_str("%sin");
-          }
-          Bit::Abs => {
-            buf.push_str("%abs");
-          }
-          Bit::Cel => {
-            buf.push_str("%cel");
-          }
-          Bit::Flr => {
-            buf.push_str("%flr");
-          }
         }
-      }
-      &Obj::Num(value) => {
-        let string = value.to_string();
-        buf.push_str(&string);
       }
       &Obj::Sym(ref value) => {
         buf.push_str(&value);

@@ -47,19 +47,6 @@ pub enum Bit {
   Fix,
   Run,
   Jmp,
-  Min,
-  Max,
-  Add,
-  Neg,
-  Mul,
-  Inv,
-  Exp,
-  Log,
-  Cos,
-  Sin,
-  Abs,
-  Cel,
-  Flr,
 }
 
 /// Halt the computation if the given condition is false.

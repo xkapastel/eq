@@ -35,33 +35,6 @@ pub fn reduce(
   return thread.get_environment(mem);
 }
 
-fn invert(x: Num) -> Num {
-  if x == 0.0 {
-    return 0.0;
-  }
-  return 1.0 / x;
-}
-
-fn num_unop(
-  func: &Fn(Num) -> Num,
-  source: mem::Ptr,
-  mem: &mut mem::Mem) -> Result<mem::Ptr> {
-  let source_value = mem.get_num(source)?;
-  let target_value = func(source_value);
-  return mem.new_num(target_value);
-}
-
-fn num_binop(
-  func: &Fn(Num, Num) -> Num,
-  lhs: mem::Ptr,
-  rhs: mem::Ptr,
-  mem: &mut mem::Mem) -> Result<mem::Ptr> {
-  let lhs_value = mem.get_num(lhs)?;
-  let rhs_value = mem.get_num(rhs)?;
-  let target_value = func(lhs_value, rhs_value);
-  return mem.new_num(target_value);
-}
-
 use std::collections::VecDeque;
 
 #[derive(Debug, Clone)]
@@ -203,9 +176,7 @@ impl Thread {
     mem: &mut mem::Mem,
     tab: &HashMap<Rc<str>, mem::Ptr>) -> Result<()> {
     let code = self.pop_continuation(mem)?;
-    if mem.is_num(code)? {
-      self.push_environment(code);
-    } else if mem.is_fun(code)? {
+    if mem.is_fun(code)? {
       self.push_environment(code);
     } else if mem.is_cmd(code)? {
       let body = mem.get_cmd_body(code)?;
@@ -306,127 +277,6 @@ impl Thread {
           self.push_environment(environment);
           self.push_environment(continuation);
           self.push_continuation_front(callback_body);
-        }
-        Bit::Min => {
-          if !self.is_dyadic() {
-            self.thunk(code);
-            return Ok(());
-          }
-          let snd = self.pop_environment()?;
-          let fst = self.pop_environment()?;
-          let target = num_binop(&|x, y| x.min(y), fst, snd, mem)?;
-          self.push_environment(target);
-        }
-        Bit::Max => {
-          if !self.is_dyadic() {
-            self.thunk(code);
-            return Ok(());
-          }
-          let snd = self.pop_environment()?;
-          let fst = self.pop_environment()?;
-          let target = num_binop(&|x, y| x.max(y), fst, snd, mem)?;
-          self.push_environment(target);
-        }
-        Bit::Add => {
-          if !self.is_dyadic() {
-            self.thunk(code);
-            return Ok(());
-          }
-          let snd = self.pop_environment()?;
-          let fst = self.pop_environment()?;
-          let target = num_binop(&|x, y| x + y, fst, snd, mem)?;
-          self.push_environment(target);
-        }
-        Bit::Neg => {
-          if !self.is_monadic() {
-            self.thunk(code);
-            return Ok(());
-          }
-          let source = self.pop_environment()?;
-          let target = num_unop(&|x| 0.0 - x, source, mem)?;
-          self.push_environment(target);
-        }
-        Bit::Mul => {
-          if !self.is_dyadic() {
-            self.thunk(code);
-            return Ok(());
-          }
-          let snd = self.pop_environment()?;
-          let fst = self.pop_environment()?;
-          let target = num_binop(&|x, y| x * y, fst, snd, mem)?;
-          self.push_environment(target);
-        }
-        Bit::Inv => {
-          if !self.is_monadic() {
-            self.thunk(code);
-            return Ok(());
-          }
-          let source = self.pop_environment()?;
-          let target = num_unop(&invert, source, mem)?;
-          self.push_environment(target);
-        }
-        Bit::Exp => {
-          if !self.is_monadic() {
-            self.thunk(code);
-            return Ok(());
-          }
-          let source = self.pop_environment()?;
-          let target = num_unop(&|x| x.exp(), source, mem)?;
-          self.push_environment(target);
-        }
-        Bit::Log => {
-          if !self.is_monadic() {
-            self.thunk(code);
-            return Ok(());
-          }
-          let source = self.pop_environment()?;
-          let target = num_unop(&|x| x.ln(), source, mem)?;
-          self.push_environment(target);
-        }
-        Bit::Cos => {
-          if !self.is_monadic() {
-            self.thunk(code);
-            return Ok(());
-          }
-          let source = self.pop_environment()?;
-          let target = num_unop(&|x| x.cos(), source, mem)?;
-          self.push_environment(target);
-        }
-        Bit::Sin => {
-          if !self.is_monadic() {
-            self.thunk(code);
-            return Ok(());
-          }
-          let source = self.pop_environment()?;
-          let target = num_unop(&|x| x.sin(), source, mem)?;
-          self.push_environment(target);
-        }
-        Bit::Abs => {
-          if !self.is_monadic() {
-            self.thunk(code);
-            return Ok(());
-          }
-          let source = self.pop_environment()?;
-          let target = num_unop(&|x| x.abs(), source, mem)?;
-          self.push_environment(target);
-        }
-        Bit::Cel => {
-          if !self.is_monadic() {
-            self.thunk(code);
-            return Ok(());
-          }
-          let source = self.pop_environment()?;
-          let target = num_unop(&|x| x.ceil(), source, mem)?;
-          self.push_environment(target);
-        }
-        Bit::Flr => {
-          if !self.is_monadic() {
-            self.thunk(code);
-            return Ok(());
-          }
-          let source = self.pop_environment()?;
-          let target = num_unop(&|x| x.floor(), source, mem)?;
-          self.push_environment(target);
         }
       }
     } else if mem.is_sym(code)? {
