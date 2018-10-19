@@ -1,33 +1,15 @@
 Common names for the primitive functions.
 
 ```eq
-:app %app
-:box %box
-:cat %cat
-:copy %cpy
-:drop %drp
-:swap %swp
-:fix %fix
-:shift %jmp
-:forall %all
-:set %set
-:num %num
-:+ %add
-:* %mul
-:- %neg
-:/ %inv
-:max %max
-:min %min
-:exp %exp
-:log %log
-:cos %cos
-:sin %sin
-:abs %abs
-:ceil %cel
-:floor %flr
+:app a
+:box b
+:cat c
+:copy d
+:drop e
+:swap f
 ```
 
-Products.
+Products and coproducts.
 
 ```eq
 :pair box swap box swap cat
