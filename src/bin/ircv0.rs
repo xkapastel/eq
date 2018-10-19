@@ -39,7 +39,7 @@ fn irc_config() -> mirc::Config {
 fn main() {
   let space_quota = 65536;
   let time_quota = 4096;
-  let mut pod = sundial::Pod::default(space_quota, time_quota).unwrap();
+  let mut pod = sundial::v0::Pod::default(space_quota, time_quota).unwrap();
   let mut reactor = mirc::IrcReactor::new().unwrap();
   let config = irc_config();
   let client = reactor.prepare_client_and_connect(&config).unwrap();
