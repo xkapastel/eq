@@ -16,11 +16,10 @@ The routing algorithm is meant to be similar to
 Sundial bytecode is a [concatenative language](http://tunes.org/~iepos/joy.html).
 
 ``` 
-       [A] [B] put  = [[A] B]
-       [A [B]] get  = [A] [B]
+           [A] app  = A
+           [A] box  = [[A]]
        [A] [B] cat  = [A B]
            [A] copy = [A] [A]
            [A] drop =
        [A] [B] swap = [B] [A]
-           [A] fix  = [[A] fix A]
 ```
