@@ -1,6 +1,6 @@
 Common names for the primitive functions.
 
-```eq
+```sundial
 :app a
 :box b
 :cat c
@@ -11,8 +11,10 @@ Common names for the primitive functions.
 
 Products and coproducts.
 
-```eq
+```sundial
 :pair box swap box swap cat
+:fst app drop
+:snd app swap drop
 
 :app1 box cat app
 :app2 pair app1 app
@@ -22,27 +24,28 @@ Products and coproducts.
 :box2 pair box1 app
 :box3 pair box2 app
 
-:drop1 swap drop
-:drop2 pair drop1 app
-:drop3 pair drop2 app
-
 :swap1 swap
 :swap2 pair swap app1
 :swap3 pair swap2 app1
+
+:drop1 swap drop
+:drop2 pair drop1 app
+:drop3 pair drop2 app
 
 :copy1 swap copy swap2
 :copy2 pair copy1 app
 :copy3 pair copy2 app
 
-:fst app drop
-:snd app drop1
-
 :case swap2 app
 :bind box1 cat
-:call1 swap app
-:inl [drop1 call1] bind
-:inr [drop2 call1] bind
+:call swap app
+:inl [drop1 call] bind
+:inr [drop2 call] bind
+```
 
+Useful shuffling.
+
+```sundial
 :bac swap2
 :cbad swap3
 :badc pair swap2 swap2 app2

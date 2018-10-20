@@ -777,7 +777,7 @@ fn extract_code_blocks(src: &str) -> String {
   let mut blocks: Vec<String> = Vec::new();
   iter_nodes(root, &mut |node| {
     if let &comrak::nodes::NodeValue::CodeBlock(ref node) = &node.data.borrow().value {
-      if "eq" == std::str::from_utf8(&node.info).unwrap() {
+      if "sundial" == std::str::from_utf8(&node.info).unwrap() {
         let block = std::str::from_utf8(&node.literal).unwrap().to_string();
         blocks.push(block);
       }
