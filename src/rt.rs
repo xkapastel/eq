@@ -33,11 +33,11 @@ pub enum Error {
 /// The result of a computation.
 pub type Result<T> = std::result::Result<T, Error>;
 
-pub type Num = f64;
+pub type Number = f64;
 
-/// A Sundial bitcode.
+/// A Sundial opcode.
 #[derive(Debug, Copy, Clone)]
-pub enum Bit {
+pub enum Opcode {
   App,
   Box,
   Cat,
@@ -61,22 +61,22 @@ pub fn assert(flag: Result<bool>) -> Result<()> {
   }
 }
 
-pub const SYM_PATTERN: &'static str = r"[a-z0-9-]+";
+pub const WORD_PATTERN: &'static str = r"[a-z0-9-]+";
 
 lazy_static! {
   static ref WORD_REGEX: regex::Regex = {
-    regex::Regex::new(SYM_PATTERN).unwrap()
+    regex::Regex::new(WORD_PATTERN).unwrap()
   };
   static ref POD_INSERT_REGEX: regex::Regex = {
-    let src = format!(r"^:({})\s+(.*)", SYM_PATTERN);
+    let src = format!(r"^:({})\s+(.*)", WORD_PATTERN);
     regex::Regex::new(&src).unwrap()
   };
   static ref POD_DELETE_REGEX: regex::Regex = {
-    let src = format!(r"^~({})\s*", SYM_PATTERN);
+    let src = format!(r"^~({})\s*", WORD_PATTERN);
     regex::Regex::new(&src).unwrap()
   };
-  static ref ANN_REGEX: regex::Regex = {
-    let src = format!(r"^\(({})\)$", SYM_PATTERN);
+  static ref HINT_REGEX: regex::Regex = {
+    let src = format!(r"^\(({})\)$", WORD_PATTERN);
     regex::Regex::new(&src).unwrap()
   };
 }
@@ -91,25 +91,25 @@ pub struct Ptr {
 use std::rc::Rc;
 use std::collections::HashMap;
 
-pub type Tab = HashMap<Rc<str>, Ptr>;
+pub type Library = HashMap<Rc<str>, Ptr>;
 
-enum Obj {
-  Nil,
-  Sym(Rc<str>),
-  Ann(Rc<str>),
-  Bit(Bit),
-  Fun(Ptr),
-  Cat(Ptr, Ptr),
+enum Object {
+  Id,
+  Opcode(Opcode),
+  Word(Rc<str>),
+  Hint(Rc<str>),
+  Block(Ptr),
+  Sequence(Ptr, Ptr),
 }
 
 struct Node {
-  object: Obj,
+  object: Object,
   generation: u64,
   is_visible: bool,
 }
 
 /// A garbage-collected heap.
-pub struct Mem {
+pub struct Heap {
   nodes: Vec<Option<Node>>,
   generation: u64,
 }
@@ -123,52 +123,52 @@ impl Ptr {
   }
 }
 
-impl Obj {
-  fn is_nil(&self) -> bool {
+impl Object {
+  fn is_id(&self) -> bool {
     match self {
-      Obj::Nil => true,
+      Object::Id => true,
       _ => false,
     }
   }
 
-  fn is_bit(&self) -> bool {
+  fn is_opcode(&self) -> bool {
     match self {
-      Obj::Bit(_) => true,
+      Object::Opcode(_) => true,
       _ => false,
     }
   }
 
-  fn is_sym(&self) -> bool {
+  fn is_word(&self) -> bool {
     match self {
-      Obj::Sym(_) => true,
+      Object::Word(_) => true,
       _ => false,
     }
   }
 
-  fn is_ann(&self) -> bool {
+  fn is_hint(&self) -> bool {
     match self {
-      Obj::Ann(_) => true,
+      Object::Hint(_) => true,
       _ => false,
     }
   }
 
-  fn is_fun(&self) -> bool {
+  fn is_block(&self) -> bool {
     match self {
-      Obj::Fun(_) => true,
+      Object::Block(_) => true,
       _ => false,
     }
   }
 
-  fn is_cat(&self) -> bool {
+  fn is_sequence(&self) -> bool {
     match self {
-      Obj::Cat(_, _) => true,
+      Object::Sequence(_, _) => true,
       _ => false,
     }
   }
 }
 
 impl Node {
-  fn new(object: Obj, generation: u64) -> Self {
+  fn new(object: Object, generation: u64) -> Self {
     Node {
       object: object,
       generation: generation,
@@ -177,102 +177,91 @@ impl Node {
   }
 }
 
-impl Mem {
+impl Heap {
   /// Creates a heap with the given capacity.
   pub fn with_capacity(capacity: usize) -> Self {
     let mut nodes = Vec::with_capacity(capacity);
     for _ in 0..capacity {
       nodes.push(None);
     }
-    Mem {
+    Heap {
       nodes: nodes,
       generation: 0,
     }
   }
-  
-  /// Returns the nil object
-  pub fn new_nil(&mut self) -> Result<Ptr> {
-    let object = Obj::Nil;
+
+  pub fn new_id(&mut self) -> Result<Ptr> {
+    let object = Object::Id;
     return self.put(object);
   }
 
-  pub fn new_bit(&mut self, bit: Bit) -> Result<Ptr> {
-    let object = Obj::Bit(bit);
+  pub fn new_opcode(&mut self, opcode: Opcode) -> Result<Ptr> {
+    let object = Object::Opcode(opcode);
     return self.put(object);
   }
 
-  /// Creates a new symbol.
-  pub fn new_sym(&mut self, value: Rc<str>) -> Result<Ptr> {
-    let object = Obj::Sym(value);
+  pub fn new_word(&mut self, value: Rc<str>) -> Result<Ptr> {
+    let object = Object::Word(value);
     return self.put(object);
   }
 
-  /// Creates a new annotation.
-  pub fn new_ann(&mut self, value: Rc<str>) -> Result<Ptr> {
-    let object = Obj::Ann(value);
+  pub fn new_hint(&mut self, value: Rc<str>) -> Result<Ptr> {
+    let object = Object::Hint(value);
     return self.put(object);
   }
 
-  /// Creates a new funtraction.
-  pub fn new_fun(&mut self, body: Ptr) -> Result<Ptr> {
-    let object = Obj::Fun(body);
+  pub fn new_block(&mut self, body: Ptr) -> Result<Ptr> {
+    let object = Object::Block(body);
     return self.put(object);
   }
 
-  /// Creates a new catenation.
-  pub fn new_cat(&mut self, fst: Ptr, snd: Ptr) -> Result<Ptr> {
-    if self.is_nil(fst)? {
+  pub fn new_sequence(&mut self, fst: Ptr, snd: Ptr) -> Result<Ptr> {
+    if self.is_id(fst)? {
       return Ok(snd);
     }
-    if self.is_cat(fst)? {
-      let fst_fst = self.get_cat_fst(fst)?;
-      let fst_snd = self.get_cat_snd(fst)?;
-      let rhs = self.new_cat(fst_snd, snd)?;
-      return self.new_cat(fst_fst, rhs);
+    if self.is_sequence(fst)? {
+      let fst_fst = self.get_sequence_fst(fst)?;
+      let fst_snd = self.get_sequence_snd(fst)?;
+      let rhs = self.new_sequence(fst_snd, snd)?;
+      return self.new_sequence(fst_fst, rhs);
     }
-    let object = Obj::Cat(fst, snd);
+    let object = Object::Sequence(fst, snd);
     return self.put(object);
   }
 
-  /// Predicates the nil object.
-  pub fn is_nil(&self, pointer: Ptr) -> Result<bool> {
+  pub fn is_id(&self, pointer: Ptr) -> Result<bool> {
     let object = self.get_ref(pointer)?;
-    return Ok(object.is_nil());
+    return Ok(object.is_id());
   }
 
-  /// Predicates bitcodes.
-  pub fn is_bit(&self, pointer: Ptr) -> Result<bool> {
+  pub fn is_opcode(&self, pointer: Ptr) -> Result<bool> {
     let object = self.get_ref(pointer)?;
-    return Ok(object.is_bit());
+    return Ok(object.is_opcode());
   }
 
-  /// Predicates symbols.
-  pub fn is_sym(&self, pointer: Ptr) -> Result<bool> {
+  pub fn is_word(&self, pointer: Ptr) -> Result<bool> {
     let object = self.get_ref(pointer)?;
-    return Ok(object.is_sym());
+    return Ok(object.is_word());
   }
 
-  /// Predicates annotations.
-  pub fn is_ann(&self, pointer: Ptr) -> Result<bool> {
+  pub fn is_hint(&self, pointer: Ptr) -> Result<bool> {
     let object = self.get_ref(pointer)?;
-    return Ok(object.is_ann());
+    return Ok(object.is_hint());
   }
 
-  /// Predicates funtractions.
-  pub fn is_fun(&self, pointer: Ptr) -> Result<bool> {
+  pub fn is_block(&self, pointer: Ptr) -> Result<bool> {
     let object = self.get_ref(pointer)?;
-    return Ok(object.is_fun());
+    return Ok(object.is_block());
   }
 
-  /// Predicates catenations.
-  pub fn is_cat(&self, pointer: Ptr) -> Result<bool> {
+  pub fn is_sequence(&self, pointer: Ptr) -> Result<bool> {
     let object = self.get_ref(pointer)?;
-    return Ok(object.is_cat());
+    return Ok(object.is_sequence());
   }
 
-  pub fn get_bit(&self, pointer: Ptr) -> Result<Bit> {
+  pub fn get_opcode(&self, pointer: Ptr) -> Result<Opcode> {
     match self.get_ref(pointer)? {
-      &Obj::Bit(ref value) => {
+      &Object::Opcode(ref value) => {
         return Ok(*value);
       }
       _ => {
@@ -281,10 +270,9 @@ impl Mem {
     }
   }
 
-  /// Get the value of a symbol.
-  pub fn get_sym(&self, pointer: Ptr) -> Result<Rc<str>> {
+  pub fn get_word(&self, pointer: Ptr) -> Result<Rc<str>> {
     match self.get_ref(pointer)? {
-      &Obj::Sym(ref value) => {
+      &Object::Word(ref value) => {
         return Ok(value.clone());
       }
       _ => {
@@ -293,10 +281,9 @@ impl Mem {
     }
   }
 
-  /// Get the value of an annotation.
-  pub fn get_ann(&self, pointer: Ptr) -> Result<Rc<str>> {
+  pub fn get_hint(&self, pointer: Ptr) -> Result<Rc<str>> {
     match self.get_ref(pointer)? {
-      &Obj::Ann(ref value) => {
+      &Object::Hint(ref value) => {
         return Ok(value.clone());
       }
       _ => {
@@ -305,10 +292,9 @@ impl Mem {
     }
   }
 
-  /// Get the body of an funtraction.
-  pub fn get_fun_body(&self, pointer: Ptr) -> Result<Ptr> {
+  pub fn get_block_body(&self, pointer: Ptr) -> Result<Ptr> {
     match self.get_ref(pointer)? {
-      &Obj::Fun(ref body) => {
+      &Object::Block(ref body) => {
         return Ok(*body);
       }
       _ => {
@@ -317,10 +303,9 @@ impl Mem {
     }
   }
 
-  /// Get the first element of a catenation.
-  pub fn get_cat_fst(&self, pointer: Ptr) -> Result<Ptr> {
+  pub fn get_sequence_fst(&self, pointer: Ptr) -> Result<Ptr> {
     match self.get_ref(pointer)? {
-      &Obj::Cat(ref fst, _) => {
+      &Object::Sequence(ref fst, _) => {
         return Ok(*fst);
       }
       _ => {
@@ -329,10 +314,9 @@ impl Mem {
     }
   }
 
-  /// Get the second element of a cat.
-  pub fn get_cat_snd(&self, pointer: Ptr) -> Result<Ptr> {
+  pub fn get_sequence_snd(&self, pointer: Ptr) -> Result<Ptr> {
     match self.get_ref(pointer)? {
-      &Obj::Cat(_, ref snd) => {
+      &Object::Sequence(_, ref snd) => {
         return Ok(*snd);
       }
       _ => {
@@ -349,10 +333,10 @@ impl Mem {
         }
         node.is_visible = true;
         match &node.object {
-          &Obj::Fun(body) => {
+          &Object::Block(body) => {
             return self.mark(body);
           }
-          &Obj::Cat(fst, snd) => {
+          &Object::Sequence(fst, snd) => {
             self.mark(fst)?;
             return self.mark(snd);
           }
@@ -405,42 +389,42 @@ impl Mem {
         }
         "]" => {
           let prev = stack.pop().ok_or(Error::Syntax)?;
-          let mut xs = self.new_nil()?;
+          let mut xs = self.new_id()?;
           for object in build.iter().rev() {
-            xs = self.new_cat(*object, xs)?;
+            xs = self.new_sequence(*object, xs)?;
           }
-          xs = self.new_fun(xs)?;
+          xs = self.new_block(xs)?;
           build = prev;
           build.push(xs);
         }
         "a" => {
-          let bit = Bit::App;
-          let object = self.new_bit(bit)?;
+          let opcode = Opcode::App;
+          let object = self.new_opcode(opcode)?;
           build.push(object);
         }
         "b" => {
-          let bit = Bit::Box;
-          let object = self.new_bit(bit)?;
+          let opcode = Opcode::Box;
+          let object = self.new_opcode(opcode)?;
           build.push(object);
         }
         "c" => {
-          let bit = Bit::Cat;
-          let object = self.new_bit(bit)?;
+          let opcode = Opcode::Cat;
+          let object = self.new_opcode(opcode)?;
           build.push(object);
         }
         "d" => {
-          let bit = Bit::Copy;
-          let object = self.new_bit(bit)?;
+          let opcode = Opcode::Copy;
+          let object = self.new_opcode(opcode)?;
           build.push(object);
         }
         "e" => {
-          let bit = Bit::Drop;
-          let object = self.new_bit(bit)?;
+          let opcode = Opcode::Drop;
+          let object = self.new_opcode(opcode)?;
           build.push(object);
         }
         "f" => {
-          let bit = Bit::Swap;
-          let object = self.new_bit(bit)?;
+          let opcode = Opcode::Swap;
+          let object = self.new_opcode(opcode)?;
           build.push(object);
         }
         _ => {
@@ -449,12 +433,12 @@ impl Mem {
               return Err(Error::Syntax);
             }
           }
-          if let Some(data) = ANN_REGEX.captures(&word) {
+          if let Some(data) = HINT_REGEX.captures(&word) {
             let name = data.get(1).ok_or(Error::Bug)?.as_str();
-            let object = self.new_ann(name.into())?;
+            let object = self.new_hint(name.into())?;
             build.push(object);
           } else {
-            let object = self.new_sym(word.into())?;
+            let object = self.new_word(word.into())?;
             build.push(object);
           }
         }
@@ -463,56 +447,56 @@ impl Mem {
     if !stack.is_empty() {
       return Err(Error::Syntax);
     }
-    let mut xs = self.new_nil()?;
+    let mut xs = self.new_id()?;
     for object in build.iter().rev() {
-      xs = self.new_cat(*object, xs)?;
+      xs = self.new_sequence(*object, xs)?;
     }
     return Ok(xs);
   }
 
   pub fn quote(&self, root: Ptr, buf: &mut String) -> Result<()> {
     match self.get_ref(root)? {
-      &Obj::Nil => {
+      &Object::Id => {
         //
       }
-      &Obj::Bit(ref value) => {
+      &Object::Opcode(ref value) => {
         match value {
-          Bit::App => {
+          Opcode::App => {
             buf.push('a');
           }
-          Bit::Box => {
+          Opcode::Box => {
             buf.push('b');
           }
-          Bit::Cat => {
+          Opcode::Cat => {
             buf.push('c');
           }
-          Bit::Copy => {
+          Opcode::Copy => {
             buf.push('d');
           }
-          Bit::Drop => {
+          Opcode::Drop => {
             buf.push('e');
           }
-          Bit::Swap => {
+          Opcode::Swap => {
             buf.push('f');
           }
         }
       }
-      &Obj::Sym(ref value) => {
+      &Object::Word(ref value) => {
         buf.push_str(&value);
       }
-      &Obj::Ann(ref value) => {
+      &Object::Hint(ref value) => {
         buf.push('(');
         buf.push_str(&value);
         buf.push(')');
       }
-      &Obj::Fun(body) => {
+      &Object::Block(body) => {
         buf.push('[');
         self.quote(body, buf)?;
         buf.push(']');
       }
-      &Obj::Cat(fst, snd) => {
+      &Object::Sequence(fst, snd) => {
         self.quote(fst, buf)?;
-        if !self.is_nil(snd)? {
+        if !self.is_id(snd)? {
           buf.push(' ');
           self.quote(snd, buf)?;
         }
@@ -521,7 +505,7 @@ impl Mem {
     return Ok(());
   }
 
-  fn put(&mut self, object: Obj) -> Result<Ptr> {
+  fn put(&mut self, object: Object) -> Result<Ptr> {
     for (index, maybe_node) in self.nodes.iter_mut().enumerate() {
       if maybe_node.is_some() {
         continue;
@@ -534,7 +518,7 @@ impl Mem {
     return Err(Error::Space);
   }
 
-  fn get_ref(&self, pointer: Ptr) -> Result<&Obj> {
+  fn get_ref(&self, pointer: Ptr) -> Result<&Object> {
     match &self.nodes[pointer.index] {
       &Some(ref node) => {
         if node.generation == pointer.generation {
@@ -551,20 +535,20 @@ impl Mem {
 
 pub fn reduce(
   continuation: Ptr,
-  mem: &mut Mem,
-  tab: &Tab,
+  heap: &mut Heap,
+  tab: &Library,
   mut time_quota: u64) -> Result<Ptr> {
   let mut thread = Thread::with_continuation(continuation);
   while time_quota > 0 && thread.has_continuation() {
     time_quota -= 1;
-    thread.step(mem, tab)?;
+    thread.step(heap, tab)?;
   }
   if thread.has_continuation() {
-    let snd = thread.get_continuation(mem)?;
-    let fst = thread.get_environment(mem)?;
-    return mem.new_cat(fst, snd);
+    let snd = thread.get_continuation(heap)?;
+    let fst = thread.get_environment(heap)?;
+    return heap.new_sequence(fst, snd);
   }
-  return thread.get_environment(mem);
+  return thread.get_environment(heap);
 }
 
 use std::collections::VecDeque;
@@ -604,10 +588,10 @@ impl Thread {
   }
 
   pub fn get_continuation(
-    &mut self, mem: &mut Mem) -> Result<Ptr> {
-    let mut xs = mem.new_nil()?;
+    &mut self, heap: &mut Heap) -> Result<Ptr> {
+    let mut xs = heap.new_id()?;
     for object in self.frame.con.iter() {
-      xs = mem.new_cat(*object, xs)?;
+      xs = heap.new_sequence(*object, xs)?;
     }
     self.frame.con.clear();
     return Ok(xs);
@@ -622,12 +606,12 @@ impl Thread {
   }
 
   pub fn pop_continuation(
-    &mut self, mem: &mut Mem) -> Result<Ptr> {
+    &mut self, heap: &mut Heap) -> Result<Ptr> {
     loop {
       let code = self.frame.con.pop_front().ok_or(Error::Bug)?;
-      if mem.is_cat(code)? {
-        let fst = mem.get_cat_fst(code)?;
-        let snd = mem.get_cat_snd(code)?;
+      if heap.is_sequence(code)? {
+        let fst = heap.get_sequence_fst(code)?;
+        let snd = heap.get_sequence_snd(code)?;
         self.frame.con.push_front(snd);
         self.frame.con.push_front(fst);
       } else {
@@ -645,13 +629,13 @@ impl Thread {
   }
 
   pub fn get_environment(
-    &mut self, mem: &mut Mem) -> Result<Ptr> {
-    let mut xs = mem.new_nil()?;
+    &mut self, heap: &mut Heap) -> Result<Ptr> {
+    let mut xs = heap.new_id()?;
     for object in self.frame.env.iter().rev() {
-      xs = mem.new_cat(*object, xs)?;
+      xs = heap.new_sequence(*object, xs)?;
     }
     for object in self.frame.err.iter().rev() {
-      xs = mem.new_cat(*object, xs)?;
+      xs = heap.new_sequence(*object, xs)?;
     }
     self.frame.env.clear();
     self.frame.err.clear();
@@ -677,45 +661,45 @@ impl Thread {
 
   pub fn step(
     &mut self,
-    mem: &mut Mem,
+    heap: &mut Heap,
     tab: &HashMap<Rc<str>, Ptr>) -> Result<()> {
-    let code = self.pop_continuation(mem)?;
-    if mem.is_fun(code)? {
+    let code = self.pop_continuation(heap)?;
+    if heap.is_block(code)? {
       self.push_environment(code);
-    } else if mem.is_bit(code)? {
-      match mem.get_bit(code)? {
-        Bit::App => {
+    } else if heap.is_opcode(code)? {
+      match heap.get_opcode(code)? {
+        Opcode::App => {
           if !self.is_monadic() {
             self.thunk(code);
             return Ok(());
           }
           let source = self.pop_environment()?;
-          let target = mem.get_fun_body(source)?;
+          let target = heap.get_block_body(source)?;
           self.push_continuation_front(target);
         }
-        Bit::Box => {
+        Opcode::Box => {
           if !self.is_monadic() {
             self.thunk(code);
             return Ok(());
           }
           let source = self.pop_environment()?;
-          let target = mem.new_fun(source)?;
+          let target = heap.new_block(source)?;
           self.push_environment(target);
         }
-        Bit::Cat => {
+        Opcode::Cat => {
           if !self.is_dyadic() {
             self.thunk(code);
             return Ok(());
           }
           let rhs = self.pop_environment()?;
           let lhs = self.pop_environment()?;
-          let rhs_body = mem.get_fun_body(rhs)?;
-          let lhs_body = mem.get_fun_body(lhs)?;
-          let target_body = mem.new_cat(lhs_body, rhs_body)?;
-          let target = mem.new_fun(target_body)?;
+          let rhs_body = heap.get_block_body(rhs)?;
+          let lhs_body = heap.get_block_body(lhs)?;
+          let target_body = heap.new_sequence(lhs_body, rhs_body)?;
+          let target = heap.new_block(target_body)?;
           self.push_environment(target);
         }
-        Bit::Copy => {
+        Opcode::Copy => {
           if !self.is_monadic() {
             self.thunk(code);
             return Ok(());
@@ -723,14 +707,14 @@ impl Thread {
           let source = self.peek_environment()?;
           self.push_environment(source);
         }
-        Bit::Drop => {
+        Opcode::Drop => {
           if !self.is_monadic() {
             self.thunk(code);
             return Ok(());
           }
           self.pop_environment()?;
         }
-        Bit::Swap => {
+        Opcode::Swap => {
           if !self.is_dyadic() {
             self.thunk(code);
             return Ok(());
@@ -741,8 +725,8 @@ impl Thread {
           self.push_environment(snd);
         }
       }
-    } else if mem.is_sym(code)? {
-      let code_value = mem.get_sym(code)?;
+    } else if heap.is_word(code)? {
+      let code_value = heap.get_word(code)?;
       match tab.get(&code_value) {
         Some(binding) => {
           self.push_continuation_front(*binding);
@@ -752,7 +736,7 @@ impl Thread {
         }
       }
       return Ok(());
-    } else if mem.is_nil(code)? || mem.is_ann(code)? {
+    } else if heap.is_id(code)? || heap.is_hint(code)? {
       return Ok(());
     } else {
       return Err(Error::Bug);
@@ -787,14 +771,14 @@ fn extract_code_blocks(src: &str) -> String {
 }
 
 pub struct Pod {
-  mem: Mem,
-  tab: Tab,
+  heap: Heap,
+  tab: Library,
 }
 
 impl Pod {
-  fn with_mem(mem: Mem) -> Self {
+  fn with_heap(heap: Heap) -> Self {
     Pod {
-      mem: mem,
+      heap: heap,
       tab: HashMap::new(),
     }
   }
@@ -804,8 +788,8 @@ impl Pod {
     space_quota: usize,
     time_quota: u64) -> Result<Self> {
     let code = extract_code_blocks(src);
-    let mem = Mem::with_capacity(space_quota);
-    let mut pod = Pod::with_mem(mem);
+    let heap = Heap::with_capacity(space_quota);
+    let mut pod = Pod::with_heap(heap);
     for line in code.lines() {
       pod.eval(line, time_quota)?;
     }
@@ -824,29 +808,29 @@ impl Pod {
     if let Some(data) = POD_INSERT_REGEX.captures(src) {
       let key: Rc<str> = data.get(1).expect("key").as_str().into();
       let value_src = data.get(2).expect("value").as_str();
-      let value = self.mem.parse(value_src)?;
+      let value = self.heap.parse(value_src)?;
       let value = reduce(
-        value, &mut self.mem, &self.tab, time_quota)?;
+        value, &mut self.heap, &self.tab, time_quota)?;
       self.tab.insert(key.clone(), value);
       dst.push(':');
       dst.push_str(&key);
       dst.push(' ');
-      self.mem.quote(value, &mut dst)?;
+      self.heap.quote(value, &mut dst)?;
     } else if let Some(data) = POD_DELETE_REGEX.captures(src) {
       let key: Rc<str> = data.get(1).expect("key").as_str().into();
       self.tab.remove(&key);
       dst.push('~');
       dst.push_str(&key);
     } else {
-      let source = self.mem.parse(src)?;
+      let source = self.heap.parse(src)?;
       let target = reduce(
-        source, &mut self.mem, &self.tab, time_quota)?;
-      self.mem.quote(target, &mut dst)?;
+        source, &mut self.heap, &self.tab, time_quota)?;
+      self.heap.quote(target, &mut dst)?;
     }
     for pointer in self.tab.values() {
-      self.mem.mark(*pointer)?;
+      self.heap.mark(*pointer)?;
     }
-    self.mem.sweep()?;
+    self.heap.sweep()?;
     return Ok(dst);
   }
 
@@ -860,7 +844,7 @@ impl Pod {
       target.push(':');
       target.push_str(&key);
       target.push(' ');
-      self.mem.quote(*value, &mut target)?;
+      self.heap.quote(*value, &mut target)?;
       target.push('\n');
     }
     return Ok(target);
