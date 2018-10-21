@@ -376,135 +376,6 @@ impl Heap {
     return Ok(());
   }
 
-  pub fn parse(&mut self, src: &str) -> Result<Ptr> {
-    let mut build = Vec::new();
-    let mut stack = Vec::new();
-    let src = src.replace("[", "[ ");
-    let src = src.replace("]", " ]");
-    for word in src.split_whitespace() {
-      match word {
-        "[" => {
-          stack.push(build);
-          build = Vec::new();
-        }
-        "]" => {
-          let prev = stack.pop().ok_or(Error::Syntax)?;
-          let mut xs = self.new_id()?;
-          for object in build.iter().rev() {
-            xs = self.new_sequence(*object, xs)?;
-          }
-          xs = self.new_block(xs)?;
-          build = prev;
-          build.push(xs);
-        }
-        "a" => {
-          let opcode = Opcode::App;
-          let object = self.new_opcode(opcode)?;
-          build.push(object);
-        }
-        "b" => {
-          let opcode = Opcode::Box;
-          let object = self.new_opcode(opcode)?;
-          build.push(object);
-        }
-        "c" => {
-          let opcode = Opcode::Cat;
-          let object = self.new_opcode(opcode)?;
-          build.push(object);
-        }
-        "d" => {
-          let opcode = Opcode::Copy;
-          let object = self.new_opcode(opcode)?;
-          build.push(object);
-        }
-        "e" => {
-          let opcode = Opcode::Drop;
-          let object = self.new_opcode(opcode)?;
-          build.push(object);
-        }
-        "f" => {
-          let opcode = Opcode::Swap;
-          let object = self.new_opcode(opcode)?;
-          build.push(object);
-        }
-        _ => {
-          if word.len() == 1 {
-            if word.chars().all(|x| x.is_lowercase()) {
-              return Err(Error::Syntax);
-            }
-          }
-          if let Some(data) = HINT_REGEX.captures(&word) {
-            let name = data.get(1).ok_or(Error::Bug)?.as_str();
-            let object = self.new_hint(name.into())?;
-            build.push(object);
-          } else {
-            let object = self.new_word(word.into())?;
-            build.push(object);
-          }
-        }
-      }
-    }
-    if !stack.is_empty() {
-      return Err(Error::Syntax);
-    }
-    let mut xs = self.new_id()?;
-    for object in build.iter().rev() {
-      xs = self.new_sequence(*object, xs)?;
-    }
-    return Ok(xs);
-  }
-
-  pub fn quote(&self, root: Ptr, buf: &mut String) -> Result<()> {
-    match self.get_ref(root)? {
-      &Object::Id => {
-        //
-      }
-      &Object::Opcode(ref value) => {
-        match value {
-          Opcode::App => {
-            buf.push('a');
-          }
-          Opcode::Box => {
-            buf.push('b');
-          }
-          Opcode::Cat => {
-            buf.push('c');
-          }
-          Opcode::Copy => {
-            buf.push('d');
-          }
-          Opcode::Drop => {
-            buf.push('e');
-          }
-          Opcode::Swap => {
-            buf.push('f');
-          }
-        }
-      }
-      &Object::Word(ref value) => {
-        buf.push_str(&value);
-      }
-      &Object::Hint(ref value) => {
-        buf.push('(');
-        buf.push_str(&value);
-        buf.push(')');
-      }
-      &Object::Block(body) => {
-        buf.push('[');
-        self.quote(body, buf)?;
-        buf.push(']');
-      }
-      &Object::Sequence(fst, snd) => {
-        self.quote(fst, buf)?;
-        if !self.is_id(snd)? {
-          buf.push(' ');
-          self.quote(snd, buf)?;
-        }
-      }
-    }
-    return Ok(());
-  }
-
   fn put(&mut self, object: Object) -> Result<Ptr> {
     for (index, maybe_node) in self.nodes.iter_mut().enumerate() {
       if maybe_node.is_some() {
@@ -531,6 +402,135 @@ impl Heap {
       }
     }
   }
+}
+
+pub fn parse(src: &str, heap: &mut Heap) -> Result<Ptr> {
+  let mut build = Vec::new();
+  let mut stack = Vec::new();
+  let src = src.replace("[", "[ ");
+  let src = src.replace("]", " ]");
+  for word in src.split_whitespace() {
+    match word {
+      "[" => {
+        stack.push(build);
+        build = Vec::new();
+      }
+      "]" => {
+        let prev = stack.pop().ok_or(Error::Syntax)?;
+        let mut xs = heap.new_id()?;
+        for object in build.iter().rev() {
+          xs = heap.new_sequence(*object, xs)?;
+        }
+        xs = heap.new_block(xs)?;
+        build = prev;
+        build.push(xs);
+      }
+      "a" => {
+        let opcode = Opcode::App;
+        let object = heap.new_opcode(opcode)?;
+        build.push(object);
+      }
+      "b" => {
+        let opcode = Opcode::Box;
+        let object = heap.new_opcode(opcode)?;
+        build.push(object);
+      }
+      "c" => {
+        let opcode = Opcode::Cat;
+        let object = heap.new_opcode(opcode)?;
+        build.push(object);
+      }
+      "d" => {
+        let opcode = Opcode::Copy;
+        let object = heap.new_opcode(opcode)?;
+        build.push(object);
+      }
+      "e" => {
+        let opcode = Opcode::Drop;
+        let object = heap.new_opcode(opcode)?;
+        build.push(object);
+      }
+      "f" => {
+        let opcode = Opcode::Swap;
+        let object = heap.new_opcode(opcode)?;
+        build.push(object);
+      }
+      _ => {
+        if word.len() == 1 {
+          if word.chars().all(|x| x.is_lowercase()) {
+            return Err(Error::Syntax);
+          }
+        }
+        if let Some(data) = HINT_REGEX.captures(&word) {
+          let name = data.get(1).ok_or(Error::Bug)?.as_str();
+          let object = heap.new_hint(name.into())?;
+          build.push(object);
+        } else {
+          let object = heap.new_word(word.into())?;
+          build.push(object);
+        }
+      }
+    }
+  }
+  if !stack.is_empty() {
+    return Err(Error::Syntax);
+  }
+  let mut xs = heap.new_id()?;
+  for object in build.iter().rev() {
+    xs = heap.new_sequence(*object, xs)?;
+  }
+  return Ok(xs);
+}
+
+pub fn quote(root: Ptr, heap: &Heap, buf: &mut String) -> Result<()> {
+  match heap.get_ref(root)? {
+    &Object::Id => {
+      //
+    }
+    &Object::Opcode(ref value) => {
+      match value {
+        Opcode::App => {
+          buf.push('a');
+        }
+        Opcode::Box => {
+          buf.push('b');
+        }
+        Opcode::Cat => {
+          buf.push('c');
+        }
+        Opcode::Copy => {
+          buf.push('d');
+        }
+        Opcode::Drop => {
+          buf.push('e');
+        }
+        Opcode::Swap => {
+          buf.push('f');
+        }
+      }
+    }
+    &Object::Word(ref value) => {
+      buf.push_str(&value);
+    }
+    &Object::Hint(ref value) => {
+      buf.push('(');
+      buf.push_str(&value);
+      buf.push(')');
+    }
+    &Object::Block(body) => {
+      buf.push('[');
+      quote(body, heap, buf)?;
+      buf.push(']');
+    }
+    &Object::Sequence(fst, snd) => {
+      quote(fst, heap, buf)?;
+      if !heap.is_id(snd)? {
+        buf.push(' ');
+        quote(snd, heap, buf)?;
+      }
+    }
+  }
+  return Ok(());
 }
 
 pub fn reduce(
@@ -808,24 +808,24 @@ impl Pod {
     if let Some(data) = POD_INSERT_REGEX.captures(src) {
       let key: Rc<str> = data.get(1).expect("key").as_str().into();
       let value_src = data.get(2).expect("value").as_str();
-      let value = self.heap.parse(value_src)?;
+      let value = parse(value_src, &mut self.heap)?;
       let value = reduce(
         value, &mut self.heap, &self.tab, time_quota)?;
       self.tab.insert(key.clone(), value);
       dst.push(':');
       dst.push_str(&key);
       dst.push(' ');
-      self.heap.quote(value, &mut dst)?;
+      quote(value, &mut self.heap, &mut dst)?;
     } else if let Some(data) = POD_DELETE_REGEX.captures(src) {
       let key: Rc<str> = data.get(1).expect("key").as_str().into();
       self.tab.remove(&key);
       dst.push('~');
       dst.push_str(&key);
     } else {
-      let source = self.heap.parse(src)?;
+      let source = parse(src, &mut self.heap)?;
       let target = reduce(
         source, &mut self.heap, &self.tab, time_quota)?;
-      self.heap.quote(target, &mut dst)?;
+      quote(target, &mut self.heap, &mut dst)?;
     }
     for pointer in self.tab.values() {
       self.heap.mark(*pointer)?;
@@ -844,7 +844,7 @@ impl Pod {
       target.push(':');
       target.push_str(&key);
       target.push(' ');
-      self.heap.quote(*value, &mut target)?;
+      quote(*value, &self.heap, &mut target)?;
       target.push('\n');
     }
     return Ok(target);
