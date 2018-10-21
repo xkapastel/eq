@@ -25,17 +25,17 @@ Sundial bytecode is a [concatenative language](http://tunes.org/~iepos/joy.html)
 Γ                 :- [[A] g]
 
 Γ                 :- [[F] [G] i]
-Γ                 :- pi(i;N).[Ai] F
+Γ                 :- Π(i;N).[Ai] F
 ---------------------------------------    apply
-Γ                 :- pi(i;N).[Ai] G
+Γ                 :- Π(i;N).[Ai] G
 
-Γ                 :- [pi(i;N).[xi] F h]
-Γ, pi(i;N).[yi] F :- pi(i;N).[yi] G
+Γ                 :- [Π(i;N).[xi] F h]
+Γ, Π(i;N).[xi] F  :- Π(i;N).[xi] G
 ---------------------------------------    abstract
 Γ                 :- [[F] [G] i]
 
-Γ                 :- [pi(i;N).[xi] F h]
-Γ, pi(i;N).[yi] F :- [pi(i;N).[yi] G h]
+Γ                 :- [Π(i;N).[xi] F h]
+Γ, Π(i;N).[yi] F  :- [Π(i;N).[yi] G h]
 ---------------------------------------    well-formed
 Γ                 :- [[[F] [G] i] h]
 ```
