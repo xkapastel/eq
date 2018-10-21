@@ -44,6 +44,8 @@ pub enum Opcode {
   Copy,
   Drop,
   Swap,
+  Prop,
+  Forall,
 }
 
 /// Halt the computation if the given condition is false.
@@ -455,6 +457,16 @@ pub fn parse(src: &str, heap: &mut Heap) -> Result<Ptr> {
         let object = heap.new_opcode(opcode)?;
         build.push(object);
       }
+      "g" => {
+        let opcode = Opcode::Forall;
+        let object = heap.new_opcode(opcode)?;
+        build.push(object);
+      }
+      "h" => {
+        let opcode = Opcode::Prop;
+        let object = heap.new_opcode(opcode)?;
+        build.push(object);
+      }
       _ => {
         if word.len() == 1 {
           if word.chars().all(|x| x.is_lowercase()) {
@@ -506,6 +518,12 @@ pub fn quote(root: Ptr, heap: &Heap, buf: &mut String) -> Result<()> {
         }
         Opcode::Swap => {
           buf.push('f');
+        }
+        Opcode::Forall => {
+          buf.push('g');
+        }
+        Opcode::Prop => {
+          buf.push('h');
         }
       }
     }
@@ -724,6 +742,10 @@ impl Thread {
           self.push_environment(fst);
           self.push_environment(snd);
         }
+        Opcode::Prop | Opcode::Forall => {
+          self.thunk(code);
+          return Ok(());
+        }
       }
     } else if heap.is_word(code)? {
       let code_value = heap.get_word(code)?;
@@ -871,6 +893,8 @@ fn primitives() {
   check("d", "d");
   check("e", "e");
   check("f", "f");
+  check("g", "g");
+  check("h", "h");
   check("[A] a", "A");
   check("[A] b", "[[A]]");
   check("[A] [B] c", "[A B]");
@@ -880,4 +904,7 @@ fn primitives() {
   check("[A] [B] f", "[B] [A]");
   check("[A] f", "[A] f");
   check("[A] [B] b c", "[A [B]]");
+  check("[A] g", "[A] g");
+  check("[A] [B] g", "[A] [B] g");
+  check("[A] h", "[A] h");
 }
