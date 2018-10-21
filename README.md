@@ -10,9 +10,8 @@ Sundial bytecode is a [concatenative language](http://tunes.org/~iepos/joy.html)
     [A] d = [A] [A]
     [A] e =
 [A] [B] f = [B] [A]
-    [A] g = [A] g
+[A] [B] g = [A] [B] g
     [A] h = [A] h
-[A] [B] i = [A] [B] i
 ```
 
 ```
@@ -21,10 +20,7 @@ Sundial bytecode is a [concatenative language](http://tunes.org/~iepos/joy.html)
 ---------------------------------------    reduce
 Γ                 :- [B]
 
----------------------------------------    top
-Γ                 :- [[A] g]
-
-Γ                 :- [[F] [G] i]
+Γ                 :- [[F] [G] g]
 Γ                 :- Π(i;N).[Ai] F
 ---------------------------------------    apply
 Γ                 :- Π(i;N).[Ai] G
@@ -32,10 +28,10 @@ Sundial bytecode is a [concatenative language](http://tunes.org/~iepos/joy.html)
 Γ                 :- [Π(i;N).[xi] F h]
 Γ, Π(i;N).[xi] F  :- Π(i;N).[xi] G
 ---------------------------------------    abstract
-Γ                 :- [[F] [G] i]
+Γ                 :- [[F] [G] g]
 
 Γ                 :- [Π(i;N).[xi] F h]
 Γ, Π(i;N).[yi] F  :- [Π(i;N).[yi] G h]
 ---------------------------------------    well-formed
-Γ                 :- [[[F] [G] i] h]
+Γ                 :- [[[F] [G] g] h]
 ```
