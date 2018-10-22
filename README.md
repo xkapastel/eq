@@ -31,7 +31,7 @@ Sundial bytecode is a [concatenative language](http://tunes.org/~iepos/joy.html)
 Γ                 :- [[F] [G] g]
 
 Γ                 :- [Π(i;N).[xi] F h]
-Γ, Π(i;N).[yi] F  :- [Π(i;N).[yi] G h]
+Γ, Π(i;N).[xi] F  :- [Π(i;N).[xi] G h]
 ---------------------------------------    Prop
 Γ                 :- [[[F] [G] g] h]
 ```
