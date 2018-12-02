@@ -17,23 +17,23 @@
 
 extern crate sundial;
 
-use std::rc::Rc;
-use std::io::Write;
 use std::collections::HashMap;
+use std::io::Write;
+use std::rc::Rc;
 
 fn main() {
-  let mut source_buffer = String::new();
-  let mut target_buffer = String::new();
-  let space_quota       = 1024;
-  let time_quota        = 1024;
-  let mut pod           = sundial::Pod::default(space_quota, time_quota).unwrap();
-  loop {
-    print!("user@sundial\nλ ");
-    std::io::stdout().flush().unwrap();
-    source_buffer.clear();
-    target_buffer.clear();
-    std::io::stdin().read_line(&mut source_buffer).unwrap();
-    let target = pod.eval(&source_buffer, time_quota).unwrap();
-    println!("=> {}", &target);
-  }
+    let mut source_buffer = String::new();
+    let mut target_buffer = String::new();
+    let space_quota = 1024;
+    let time_quota = 1024;
+    let mut pod = sundial::Pod::default(space_quota, time_quota).unwrap();
+    loop {
+        print!("user@sundial\nλ ");
+        std::io::stdout().flush().unwrap();
+        source_buffer.clear();
+        target_buffer.clear();
+        std::io::stdin().read_line(&mut source_buffer).unwrap();
+        let target = pod.eval(&source_buffer, time_quota).unwrap();
+        println!("=> {}", &target);
+    }
 }

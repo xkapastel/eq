@@ -15,13 +15,12 @@
 // License along with this program.  If not, see
 // <https://www.gnu.org/licenses/.
 
-extern crate regex;
-extern crate comrak;
 extern crate atom_syndication;
+extern crate comrak;
+extern crate regex;
 
 #[macro_use]
 extern crate lazy_static;
 
 pub mod rt;
 pub use self::rt::Pod;
-
