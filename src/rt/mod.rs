@@ -83,7 +83,7 @@ lazy_static! {
 
 /// A pointer to some object.
 #[derive(Debug, Copy, Clone, Eq, PartialEq, Hash)]
-struct Ptr {
+struct Gc {
   index: usize,
   generation: u64,
 }
@@ -91,15 +91,15 @@ struct Ptr {
 use std::rc::Rc;
 use std::collections::HashMap;
 
-type Library = HashMap<Rc<str>, Ptr>;
+type Library = HashMap<Rc<str>, Gc>;
 
 enum Object {
   Id,
   Opcode(Opcode),
   Word(Rc<str>),
   Hint(Rc<str>),
-  Block(Ptr),
-  Sequence(Ptr, Ptr),
+  Block(Gc),
+  Sequence(Gc, Gc),
 }
 
 struct Node {
@@ -114,9 +114,9 @@ struct Heap {
   generation: u64,
 }
 
-impl Ptr {
+impl Gc {
   fn new(index: usize, generation: u64) -> Self {
-    Ptr {
+    Gc {
       index: index,
       generation: generation,
     }
@@ -190,32 +190,32 @@ impl Heap {
     }
   }
 
-  fn new_id(&mut self) -> Result<Ptr> {
+  fn new_id(&mut self) -> Result<Gc> {
     let object = Object::Id;
     return self.put(object);
   }
 
-  fn new_opcode(&mut self, opcode: Opcode) -> Result<Ptr> {
+  fn new_opcode(&mut self, opcode: Opcode) -> Result<Gc> {
     let object = Object::Opcode(opcode);
     return self.put(object);
   }
 
-  fn new_word(&mut self, value: Rc<str>) -> Result<Ptr> {
+  fn new_word(&mut self, value: Rc<str>) -> Result<Gc> {
     let object = Object::Word(value);
     return self.put(object);
   }
 
-  fn new_hint(&mut self, value: Rc<str>) -> Result<Ptr> {
+  fn new_hint(&mut self, value: Rc<str>) -> Result<Gc> {
     let object = Object::Hint(value);
     return self.put(object);
   }
 
-  fn new_block(&mut self, body: Ptr) -> Result<Ptr> {
+  fn new_block(&mut self, body: Gc) -> Result<Gc> {
     let object = Object::Block(body);
     return self.put(object);
   }
 
-  fn new_sequence(&mut self, fst: Ptr, snd: Ptr) -> Result<Ptr> {
+  fn new_sequence(&mut self, fst: Gc, snd: Gc) -> Result<Gc> {
     if self.is_id(fst)? {
       return Ok(snd);
     }
@@ -229,37 +229,37 @@ impl Heap {
     return self.put(object);
   }
 
-  fn is_id(&self, pointer: Ptr) -> Result<bool> {
+  fn is_id(&self, pointer: Gc) -> Result<bool> {
     let object = self.get_ref(pointer)?;
     return Ok(object.is_id());
   }
 
-  fn is_opcode(&self, pointer: Ptr) -> Result<bool> {
+  fn is_opcode(&self, pointer: Gc) -> Result<bool> {
     let object = self.get_ref(pointer)?;
     return Ok(object.is_opcode());
   }
 
-  fn is_word(&self, pointer: Ptr) -> Result<bool> {
+  fn is_word(&self, pointer: Gc) -> Result<bool> {
     let object = self.get_ref(pointer)?;
     return Ok(object.is_word());
   }
 
-  fn is_hint(&self, pointer: Ptr) -> Result<bool> {
+  fn is_hint(&self, pointer: Gc) -> Result<bool> {
     let object = self.get_ref(pointer)?;
     return Ok(object.is_hint());
   }
 
-  fn is_block(&self, pointer: Ptr) -> Result<bool> {
+  fn is_block(&self, pointer: Gc) -> Result<bool> {
     let object = self.get_ref(pointer)?;
     return Ok(object.is_block());
   }
 
-  fn is_sequence(&self, pointer: Ptr) -> Result<bool> {
+  fn is_sequence(&self, pointer: Gc) -> Result<bool> {
     let object = self.get_ref(pointer)?;
     return Ok(object.is_sequence());
   }
 
-  fn get_opcode(&self, pointer: Ptr) -> Result<Opcode> {
+  fn get_opcode(&self, pointer: Gc) -> Result<Opcode> {
     match self.get_ref(pointer)? {
       &Object::Opcode(ref value) => {
         return Ok(*value);
@@ -270,7 +270,7 @@ impl Heap {
     }
   }
 
-  fn get_word(&self, pointer: Ptr) -> Result<Rc<str>> {
+  fn get_word(&self, pointer: Gc) -> Result<Rc<str>> {
     match self.get_ref(pointer)? {
       &Object::Word(ref value) => {
         return Ok(value.clone());
@@ -281,7 +281,7 @@ impl Heap {
     }
   }
 
-  fn get_hint(&self, pointer: Ptr) -> Result<Rc<str>> {
+  fn get_hint(&self, pointer: Gc) -> Result<Rc<str>> {
     match self.get_ref(pointer)? {
       &Object::Hint(ref value) => {
         return Ok(value.clone());
@@ -292,7 +292,7 @@ impl Heap {
     }
   }
 
-  fn get_block_body(&self, pointer: Ptr) -> Result<Ptr> {
+  fn get_block_body(&self, pointer: Gc) -> Result<Gc> {
     match self.get_ref(pointer)? {
       &Object::Block(ref body) => {
         return Ok(*body);
@@ -303,7 +303,7 @@ impl Heap {
     }
   }
 
-  fn get_sequence_fst(&self, pointer: Ptr) -> Result<Ptr> {
+  fn get_sequence_fst(&self, pointer: Gc) -> Result<Gc> {
     match self.get_ref(pointer)? {
       &Object::Sequence(ref fst, _) => {
         return Ok(*fst);
@@ -314,7 +314,7 @@ impl Heap {
     }
   }
 
-  fn get_sequence_snd(&self, pointer: Ptr) -> Result<Ptr> {
+  fn get_sequence_snd(&self, pointer: Gc) -> Result<Gc> {
     match self.get_ref(pointer)? {
       &Object::Sequence(_, ref snd) => {
         return Ok(*snd);
@@ -325,7 +325,7 @@ impl Heap {
     }
   }
 
-  fn mark(&mut self, root: Ptr) -> Result<()> {
+  fn mark(&mut self, root: Gc) -> Result<()> {
     match &mut self.nodes[root.index] {
       &mut Some(ref mut node) => {
         if node.generation != root.generation {
@@ -376,20 +376,20 @@ impl Heap {
     return Ok(());
   }
 
-  fn put(&mut self, object: Object) -> Result<Ptr> {
+  fn put(&mut self, object: Object) -> Result<Gc> {
     for (index, maybe_node) in self.nodes.iter_mut().enumerate() {
       if maybe_node.is_some() {
         continue;
       }
       let node = Node::new(object, self.generation);
-      let pointer = Ptr::new(index, self.generation);
+      let pointer = Gc::new(index, self.generation);
       *maybe_node = Some(node);
       return Ok(pointer);
     }
     return Err(Error::Space);
   }
 
-  fn get_ref(&self, pointer: Ptr) -> Result<&Object> {
+  fn get_ref(&self, pointer: Gc) -> Result<&Object> {
     match &self.nodes[pointer.index] {
       &Some(ref node) => {
         if node.generation == pointer.generation {
@@ -404,7 +404,7 @@ impl Heap {
   }
 }
 
-fn parse(src: &str, heap: &mut Heap) -> Result<Ptr> {
+fn parse(src: &str, heap: &mut Heap) -> Result<Gc> {
   let mut build = Vec::new();
   let mut stack = Vec::new();
   let src = src.replace("[", "[ ");
@@ -492,7 +492,7 @@ fn parse(src: &str, heap: &mut Heap) -> Result<Ptr> {
   return Ok(xs);
 }
 
-fn quote(root: Ptr, heap: &Heap, buf: &mut String) -> Result<()> {
+fn quote(root: Gc, heap: &Heap, buf: &mut String) -> Result<()> {
   match heap.get_ref(root)? {
     &Object::Id => {
       //
@@ -550,10 +550,10 @@ fn quote(root: Ptr, heap: &Heap, buf: &mut String) -> Result<()> {
 }
 
 fn reduce(
-  continuation: Ptr,
+  continuation: Gc,
   heap: &mut Heap,
   tab: &Library,
-  mut time_quota: u64) -> Result<Ptr> {
+  mut time_quota: u64) -> Result<Gc> {
   let mut thread = Thread::with_continuation(continuation);
   while time_quota > 0 && thread.has_continuation() {
     time_quota -= 1;
@@ -571,13 +571,13 @@ use std::collections::VecDeque;
 
 #[derive(Debug, Clone)]
 struct Frame {
-  con: VecDeque<Ptr>,
-  env: Vec<Ptr>,
-  err: Vec<Ptr>,
+  con: VecDeque<Gc>,
+  env: Vec<Gc>,
+  err: Vec<Gc>,
 }
 
 impl Frame {
-  fn new(root: Ptr) -> Self {
+  fn new(root: Gc) -> Self {
     let mut con = VecDeque::new();
     con.push_back(root);
     Frame {
@@ -593,7 +593,7 @@ struct Thread {
 }
 
 impl Thread {
-  fn with_continuation(continuation: Ptr) -> Self {
+  fn with_continuation(continuation: Gc) -> Self {
     Thread {
       frame: Frame::new(continuation),
     }
@@ -604,7 +604,7 @@ impl Thread {
   }
 
   fn get_continuation(
-    &mut self, heap: &mut Heap) -> Result<Ptr> {
+    &mut self, heap: &mut Heap) -> Result<Gc> {
     let mut xs = heap.new_id()?;
     for object in self.frame.con.iter() {
       xs = heap.new_sequence(*object, xs)?;
@@ -613,16 +613,16 @@ impl Thread {
     return Ok(xs);
   }
 
-  fn push_continuation_front(&mut self, data: Ptr) {
+  fn push_continuation_front(&mut self, data: Gc) {
     self.frame.con.push_front(data);
   }
 
-  fn push_continuation_back(&mut self, data: Ptr) {
+  fn push_continuation_back(&mut self, data: Gc) {
     self.frame.con.push_back(data);
   }
 
   fn pop_continuation(
-    &mut self, heap: &mut Heap) -> Result<Ptr> {
+    &mut self, heap: &mut Heap) -> Result<Gc> {
     loop {
       let code = self.frame.con.pop_front().ok_or(Error::Bug)?;
       if heap.is_sequence(code)? {
@@ -645,7 +645,7 @@ impl Thread {
   }
 
   fn get_environment(
-    &mut self, heap: &mut Heap) -> Result<Ptr> {
+    &mut self, heap: &mut Heap) -> Result<Gc> {
     let mut xs = heap.new_id()?;
     for object in self.frame.env.iter().rev() {
       xs = heap.new_sequence(*object, xs)?;
@@ -658,19 +658,19 @@ impl Thread {
     return Ok(xs);
   }
 
-  fn push_environment(&mut self, data: Ptr) {
+  fn push_environment(&mut self, data: Gc) {
     self.frame.env.push(data);
   }
 
-  fn pop_environment(&mut self) -> Result<Ptr> {
+  fn pop_environment(&mut self) -> Result<Gc> {
     return self.frame.env.pop().ok_or(Error::Underflow);
   }
 
-  fn peek_environment(&mut self) -> Result<Ptr> {
+  fn peek_environment(&mut self) -> Result<Gc> {
     return self.frame.env.last().map(|x| *x).ok_or(Error::Underflow);
   }
 
-  fn thunk(&mut self, root: Ptr) {
+  fn thunk(&mut self, root: Gc) {
     self.frame.err.append(&mut self.frame.env);
     self.frame.err.push(root);
   }
@@ -678,7 +678,7 @@ impl Thread {
   fn step(
     &mut self,
     heap: &mut Heap,
-    tab: &HashMap<Rc<str>, Ptr>) -> Result<()> {
+    tab: &HashMap<Rc<str>, Gc>) -> Result<()> {
     let code = self.pop_continuation(heap)?;
     if heap.is_block(code)? {
       self.push_environment(code);
