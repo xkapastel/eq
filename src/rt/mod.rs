@@ -765,31 +765,6 @@ impl Thread {
   }
 }
 
-fn iter_nodes<'a, F>(
-  node: &'a comrak::nodes::AstNode<'a>,
-  func: &mut F) where F: FnMut(&'a comrak::nodes::AstNode<'a>) {
-  func(node);
-  for child in node.children() {
-    iter_nodes(child, func);
-  }
-}
-
-fn extract_code_blocks(src: &str) -> String {
-  let arena = comrak::Arena::new();
-  let options = comrak::ComrakOptions::default();
-  let root = comrak::parse_document(&arena, src, &options);
-  let mut blocks: Vec<String> = Vec::new();
-  iter_nodes(root, &mut |node| {
-    if let &comrak::nodes::NodeValue::CodeBlock(ref node) = &node.data.borrow().value {
-      if "sundial" == std::str::from_utf8(&node.info).unwrap() {
-        let block = std::str::from_utf8(&node.literal).unwrap().to_string();
-        blocks.push(block);
-      }
-    }
-  });
-  return blocks.join("\n");
-}
-
 pub struct Pod {
   heap: Heap,
   tab: Library,
@@ -807,10 +782,9 @@ impl Pod {
     src: &str,
     space_quota: usize,
     time_quota: u64) -> Result<Self> {
-    let code = extract_code_blocks(src);
     let heap = Heap::with_capacity(space_quota);
     let mut pod = Pod::with_heap(heap);
-    for line in code.lines() {
+    for line in src.lines() {
       pod.eval(line, time_quota)?;
     }
     return Ok(pod);
