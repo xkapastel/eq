@@ -4,6 +4,10 @@ version = "0.1.0"
 authors = ["Matthew Blount <xkapastel@gmail.com>"]
 edition = "2018"
 
+[lib]
+crate-type = ["cdylib"]
+
 [dependencies]
 regex = "1.0"
 lazy_static = "1.1.0"
+wasm-bindgen = "0.2"

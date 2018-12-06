@@ -18,6 +18,35 @@
 #[macro_use]
 extern crate lazy_static;
 extern crate regex;
+extern crate wasm_bindgen;
+
+use wasm_bindgen::prelude::*;
 
 pub mod rt;
 pub use self::rt::Pod;
+
+struct Database {
+
+}
+
+impl Database {
+  fn new() -> Self {
+    Database {
+
+    }
+  }
+}
+
+use std::sync::Mutex;
+
+lazy_static! {
+  static ref DATA: Mutex<Database> = {
+    let data = Database::new();
+    return Mutex::new(data);
+  };
+}
+
+#[wasm_bindgen]
+pub fn exec(uid: i64, src: &str) -> String {
+  return src.to_string();
+}
